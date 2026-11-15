@@ -8,7 +8,8 @@ import { h_flex, v_flex } from "gpui-base";
 import { theme, run, window, shared, setShared, layout, checking, props, openOverlay, closeOverlay } from "herdr";
 
 // One more in each pull request that changes the layout for people who have it installed.
-// Installs read it from this line on GitHub; RECIPE.md's "Updating" finds files by it.
+// Keep "const LAYOUT_VERSION = <n>;" at the start of its line: installs read it there on GitHub,
+// and RECIPE.md's "Updating" searches git history for that text.
 const LAYOUT_VERSION = 1;
 // false: never contact GitHub and never show that an update exists.
 const CHECK_FOR_UPDATES = true;
@@ -21,11 +22,13 @@ const DAY_MS = 24 * HOUR_MS;
 // leaves the key alone, so the next hourly tick tries again.
 async function checkForUpdate() {
   const last = shared(LATEST_KEY);
-  if (last && Date.now() - last.checkedAt < DAY_MS) return;
+  const age = last ? Date.now() - last.checkedAt : Infinity;
+  // A negative age means the clock was ahead when the last check ran, so it counts as stale.
+  if (age >= 0 && age < DAY_MS) return;
   try {
     const response = await fetch(LATEST_URL);
     if (!response.ok) return;
-    const found = (await response.text()).match(/^const LAYOUT_VERSION = (\d+);$/m);
+    const found = (await response.text()).match(/^const LAYOUT_VERSION = (\d+);/m);
     if (found) setShared(LATEST_KEY, { checkedAt: Date.now(), version: Number(found[1]) });
   } catch {}
 }

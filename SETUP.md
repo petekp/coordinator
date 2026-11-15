@@ -187,8 +187,8 @@ If they do:
    `workspace-chrome` mod. The top row fetches one small file from this
    repo on GitHub once a day, to say when a newer version of the layout
    exists. Ask whether to keep that check. On a no, set
-   `CHECK_FOR_UPDATES` to `false` in the copied
-   `mods/coordinator-topbar/main.js`.
+   `CHECK_FOR_UPDATES` to `false` in the copied top-row mod's `main.js`,
+   `mods/coordinator-topbar/main.js` unless the install renamed it.
 2. Add it the way the section "Layouts and mods other people made" in
    `~/.config/herdr-app/AGENTS.md` describes. Copy
    `herdr/layouts/coordinator.json` and its settings picture

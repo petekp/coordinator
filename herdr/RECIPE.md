@@ -247,7 +247,7 @@ This layout adds the rest.
 - The spaces mod watches each local repo's git folder with `watchFolder`. That folder is outside the mod's own folder.
 - The three mods load icons from the shipped `workspace-chrome` mod's folder. No mod reads any other file.
 - The top row uses `fetch` for one GET of `https://raw.githubusercontent.com/petekp/coordinator/main/herdr/mods/coordinator-topbar/main.js`, a few kilobytes. It reads the number in the line `const LAYOUT_VERSION = <n>;` and compares it with its own.
-  - It checks when the window starts, then every hour, and fetches only when the last good check is a day old.
+  - It checks when the window starts, then every hour, and fetches only when the last good check is a day old. A last check dated in the future counts as a day old.
   - A failed check shows nothing: no network, a non-200 answer, or a file without that line. The next hourly tick tries again.
   - With `CHECK_FOR_UPDATES` set to `false`, it never fetches and never shows the dot.
   - It doesn't check during `herdr-app check`, or in its own popup.
@@ -301,7 +301,7 @@ This layout adds the rest.
 ## Done when
 
 - `herdr-app check` passes on each of `mods/coordinator-agents`, `mods/coordinator-spaces` and `mods/coordinator-topbar`.
-- With `LATEST_URL` pointed at a file holding `const LAYOUT_VERSION = 2;`, the shared key `coordinator.latest` gets version 2, the dot shows, and its popup's Copy puts the update line on the clipboard.
+- With `LATEST_URL` set to a local HTTP address serving a file that holds `const LAYOUT_VERSION = 2;`, and `LATEST_KEY` set to an unused key such as `coordinator.latest.test`, that key gets version 2, the dot shows, and its popup's Copy puts the update line on the clipboard. `python3 -m http.server` can serve the file. The unused key starts empty, so the check runs at once and the real key keeps its day-long wait. Restore both constants afterward.
 - `layout.switch {name: "coordinator"}` shows the layout, and `herdr-app status` lists no errors.
 - While the installed copy is current, the top row shows only the search and sidebar toggle buttons.
 - Right-clicking an agent and choosing Pin to the top moves it under Pinned. `hc get <terminal>` shows `herdr.pinned` in its labels.
