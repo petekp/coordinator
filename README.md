@@ -108,6 +108,8 @@ coordinator's tab shows. Each agent gets a colored tile, and the inbox's
 counts follow its name. The layout works without the coordinator or the
 inbox, but the counts need the inbox.
 
+It is listed in Herdr's layout gallery at
+[herdr.dev/layouts/petekp/coordinator--herdr](https://herdr.dev/layouts/petekp/coordinator--herdr).
 The agent that follows SETUP.md offers the layout. To add it yourself, paste
 this into an agent running inside the Herdr app:
 
