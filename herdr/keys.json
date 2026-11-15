@@ -1,0 +1,5 @@
+{
+  "layout:coordinator": {
+    "cmd-k": "mod.open:coordinator-agents"
+  }
+}

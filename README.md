@@ -59,6 +59,8 @@ Optional:
 - The [inbox](https://github.com/petekp/inbox) mod for Claude Code collects
   every question in one pane. The scripts read its saved questions when it
   is installed.
+- The coordinator sidebar is a Herdr layout in `herdr/`, described under
+  [Herdr sidebar](#herdr-sidebar).
 
 Tested on macOS with herdr-core 0.1.21, the Herdr app 0.1.15, Claude Code
 2.1.325 and Codex 0.164.0.
@@ -79,8 +81,8 @@ To have an agent do it, paste this into Claude Code:
 Set up the coordinator workflow by following https://raw.githubusercontent.com/petekp/coordinator/main/SETUP.md
 ```
 
-It installs Herdr, these skills and the Inbox plugin, and offers Vignette,
-asking before each step. To install by hand:
+It installs Herdr, these skills and the Inbox plugin, and offers Vignette
+and the [Herdr sidebar](#herdr-sidebar), asking before each step. To install by hand:
 
 ```sh
 git clone https://github.com/petekp/coordinator.git ~/src/coordinator
@@ -94,6 +96,28 @@ To update, run `git pull` in the clone. At its first wake-up each day, the
 fleet watcher checks whether the clone is behind its upstream, and the
 coordinator tells you when it is. It never pulls by itself. To uninstall, run
 `~/src/coordinator/install.sh --remove`, then delete the clone.
+
+## Herdr sidebar
+
+![Coordinator sidebar](herdr/preview.png)
+
+The `herdr/` folder holds an optional Herdr layout made for this workflow.
+Its sidebar lists pinned coordinators first, in the order you drag them,
+with each coordinator's delegates under it. The tab bar hides while a
+coordinator's tab shows. Each agent gets a colored tile, and the inbox's
+counts follow its name. The layout works without the coordinator or the
+inbox, but the counts need the inbox.
+
+The agent that follows SETUP.md offers the layout. To add it yourself, paste
+this into an agent running inside the Herdr app:
+
+```
+Add the Herdr layout at https://github.com/petekp/coordinator/tree/main/herdr
+```
+
+The agent reads [herdr/RECIPE.md](herdr/RECIPE.md) and the layout's files,
+then tells you what the mods run. It asks before it changes your keys or
+your window.
 
 ## Configure
 
