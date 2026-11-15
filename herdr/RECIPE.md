@@ -1,10 +1,16 @@
 # Coordinator
 
-This Herdr sidebar is for a person who runs many coding agents at once. Pinned agents sit at the top of the Agents list, in the order the person drags them. Each agent has a colored letter tile, and counts from the inbox plugin follow its name. While the shown tab holds a pinned agent, the tab bar hides. Cmd-K opens a popup that jumps to any agent by name. The Spaces list nests worktrees under their checkout and draws each space's tile in the theme's colors. It folds away to its header. When a newer version of the layout is published, the top row says so.
+A sidebar for running several projects at once through coordinators. A coordinator is an agent that owns one project and starts its own delegates. Pin your coordinators and they stay at the top, each with its delegates nested under it. Counts beside a coordinator's name show how many questions wait on you, so you answer in one place and never chase a delegate. Cmd-K jumps to any agent by name. It works with any Herdr agents, and pairs with the coordinator skill and the inbox plugin.
+
+- Pinned coordinators stay at the top, in the order you drag them, each with its delegates nested under it.
+- Counts beside a coordinator's name show how many questions wait on you.
+- A delegate's row stays quiet. A stopped one shows a small red dot and nothing more.
+- The tab bar hides while you are in a coordinator's tab, and Cmd-K jumps to any agent by name.
+- Colors come from your theme, and the Spaces list folds away.
 
 ![Coordinator](preview.png)
 
-It pairs with [petekp/coordinator](https://github.com/petekp/coordinator), a Claude Code skill that runs a coordinator agent and its delegates in Herdr. A coordinator pins itself, and its delegates start as its sub-agents, so they appear nested under it. The inbox counts come from the [inbox](https://github.com/petekp/inbox) Claude Code plugin. The layout works without either one.
+The [coordinator skill](https://github.com/petekp/coordinator) for Claude Code runs a coordinator agent and its delegates in Herdr. A coordinator pins itself, and its delegates start as its sub-agents, so they appear nested under it. The counts come from the [inbox plugin](https://github.com/petekp/inbox) for Claude Code. The layout works without either one.
 
 When you install this layout, offer the person the inbox plugin too, unless `claude plugin list` already shows `inbox` or Claude Code isn't installed. On a yes, run `claude plugin marketplace add petekp/inbox` and then `claude plugin install inbox@inbox`. It takes effect in new Claude Code sessions, and in open ones after `/reload-plugins`. The plugin installs and updates its own Herdr panel. The first `/inbox` inside the Herdr app offers it, and the person presses Install. The right-hand panel in the picture above is that panel, on its Status view.
 
