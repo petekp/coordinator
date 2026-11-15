@@ -48,7 +48,7 @@ The window is Herdr's `main` layout with three of its sidebar mods replaced. Lef
 ### Agents
 
 - The list has a 1px `border` line on top. A 41px header shows "Agents" in 11.5px `dim` text. At its right, a 14px icon shows the sort. It is a clock for Priority and layers for Grouped by space.
-- Pinned agents come first, under "Pinned". The rest follow in Priority sections or in one group per space.
+- Pinned agents come first, under "Pinned". The rest follow in one group per space, or in Priority sections.
 - The Priority sections are "Needs you" in `blocked`, "Done" in `done`, "Working" in `working` and "Idle" in `dim`. Each shows its count.
 - Group headers are 30px with 11px medium text.
 - Each agent is a 32px row with 8px corners and 14px text. It shows a lead icon, the name, the inbox counts, the machine for a remote agent, and the status.
@@ -118,7 +118,7 @@ The 42px tab bar is hidden while the shown tab holds a pinned agent. It shows on
 - Hovering a row that has sub-agents shows a tile with a chevron in place of the lead icon. The chevron points down when open and right when folded. Clicking the chevron folds or opens the sub-agents.
 - Option-clicking the chevron folds or opens every agent's sub-agents, to match the one clicked.
 - Clicking a group header folds the group. A folded header shows its count and a right chevron. A folded space group also shows its most urgent status, unless that is idle.
-- The sort icon opens a 200×140px popup at the pointer with "Sort agents", Priority and Grouped by space. A check marks the current one.
+- The sort icon opens a 200×140px popup at the pointer with "Sort agents", Priority and Grouped by space. A check marks the current one. Until the person picks one, the list is grouped by space.
 - Priority puts Needs you first, then Done, Working and Idle. An agent with sub-agents takes the place of its most urgent one.
 - Within a Priority section, the agent whose state changed last comes first. Done and idle count as the same state for this.
 - A sub-agent's error counts as blocked. A sub-agent's done counts as idle, because the parent reports the news.
@@ -290,7 +290,7 @@ This layout adds the rest.
 - The tile's letter is the space's initial, not the agent's. Two agents in one space have the same letter and differ only by color.
 - The inbox counts need the inbox plugin. Without it, rows show nothing after the name. Don't copy the plugin's Herdr panel into this layout: the plugin installs and updates it.
 - The inbox colors follow `settings().dark`, dark unless it is `false`. They don't come from the theme.
-- `agents.sort` is shared with Herdr's own Agents list. Changing the sort in one changes it in the other.
+- `agents.sort` is shared with Herdr's own Agents list. Changing the sort in one changes it in the other. Until the person picks a sort, this list is grouped by space and Herdr's own list is in Priority order.
 - The jumper places its rows at fixed 30px offsets and scrolls them itself. The wheel moves the selection too. Otherwise the next frame would scroll the list back to the selected row.
 - The spaces mod is the shipped 0.1.16 `spaces` mod with two changes: the gradient tile and the fold. On a newer Herdr, start from that version's `spaces` mod and make the same two changes.
 - The agents mod was cloned from 0.1.15 and carries the shipped 0.1.16 fixes. It also differs from the shipped `agents` mod on purpose.

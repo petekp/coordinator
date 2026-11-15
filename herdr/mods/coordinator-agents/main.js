@@ -73,7 +73,8 @@ const SORTS = [
   { id: "priority", label: "Priority", icon: "clock" },
   { id: "grouped", label: "Grouped by space", icon: "layers" },
 ];
-const sortOf = () => SORTS.find((s) => s.id === shared("agents.sort")) ?? SORTS[0];
+const DEFAULT_SORT_ID = "grouped";
+const sortOf = () => SORTS.find((s) => s.id === (shared("agents.sort") ?? DEFAULT_SORT_ID)) ?? SORTS[0];
 // Addresses of pinned agents in the order dragged, in shared settings.
 const PIN_ORDER = "agents.pinned.order";
 const JUMP_ROW_HEIGHT = 30;
