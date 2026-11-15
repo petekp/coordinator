@@ -463,6 +463,8 @@ export default class Agents extends View {
     const st = kidStatus(k, this.listed);
     const on = k.address === shown;
     const pic = icon(k.program, 14, on ? t.foreground : t.muted, true);
+    // A sub-agent's questions go to its coordinator, so a blocked sub-agent gets a plain dot, never "Needs you".
+    const blockedDot = div().size(7).mx(3).flex_none().rounded(4).bg(t.blocked);
     return h_flex()
       .id(`sub-${k.address}`)
       .pl(39)
@@ -481,7 +483,7 @@ export default class Agents extends View {
         .when(l === "└" || l === "├", el => el.border_b(1.5).rounded_bl(6))))
       .when(Boolean(pic), el => el.child(div().mr(8).child(pic)))
       .child(this.nameCell(t, k.address, k.name || k.template || k.program?.name || k.address, on ? t.foreground : t.muted))
-      .child(this.status(t, { status: st }, compact));
+      .child(st === "blocked" ? blockedDot : this.status(t, { status: st }, compact));
   }
 
   // compact: a ! for blocked where a header already says "Needs you".
