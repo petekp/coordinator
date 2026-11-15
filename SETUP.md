@@ -18,7 +18,7 @@ exact command or click, and wait until they say it is done.
 | Coordinator skills | `/coordinator` and `fleet-sweep`, from this repo | yes |
 | Inbox plugin | One pane for every question, task and finding across sessions | recommended |
 | Vignette | Screenshot tool that sends drawings to and from agent sessions; macOS 14 or later | optional |
-| Coordinator sidebar | Herdr layout with pinned coordinators first, inbox counts and colored agent tiles | optional |
+| Coordinator layout | Herdr layout with pinned coordinators first, inbox counts and colored agent tiles | optional |
 
 ## 1. Check the basics
 
@@ -169,7 +169,7 @@ Then ask them to open Vignette. Its first launch asks for a screenshot
 shortcut, folder access and Accessibility permission, and offers to add its
 Claude Code plugin. Those choices are theirs.
 
-## 6. The coordinator sidebar (optional)
+## 6. The Coordinator layout (optional)
 
 Ask whether they want it. It is a Herdr layout from this repo. Its sidebar
 lists pinned coordinators first, in the order they drag them, with each
@@ -184,7 +184,11 @@ If they do:
    and read. They run `git` in each space's folder, `hc machine ls` every
    15 seconds, and `hc label` to store each agent's color. They watch each
    local repo's git folder, and load icons from Herdr's own
-   `workspace-chrome` mod.
+   `workspace-chrome` mod. The top row fetches one small file from this
+   repo on GitHub once a day, to say when a newer version of the layout
+   exists. Ask whether to keep that check. On a no, set
+   `CHECK_FOR_UPDATES` to `false` in the copied
+   `mods/coordinator-topbar/main.js`.
 2. Add it the way the section "Layouts and mods other people made" in
    `~/.config/herdr-app/AGENTS.md` describes. Copy
    `herdr/layouts/coordinator.json` and its settings picture
@@ -201,9 +205,12 @@ If they do:
 4. Run `herdr-app check` on each mod you copied.
 5. Switching changes their window, so ask first. Then run
    `herdr-app do layout.switch --name coordinator`.
+6. If they declined the Inbox plugin in section 4, say that the sidebar's
+   counts stay empty without it, and offer it once more.
 
-The files are copies, so `git pull` does not update them. To update, copy
-them again.
+The files are copies, so `git pull` does not update them. When the top row
+says a newer version exists, follow "Updating" in `herdr/RECIPE.md`. It
+keeps the files they edited.
 
 ## 7. Check it all
 

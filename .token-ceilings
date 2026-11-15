@@ -3,7 +3,7 @@
 # hook reads this file.
 #
 # Herdr's layout gallery reads one RECIPE.md per layout.
-herdr/RECIPE.md 6500
+herdr/RECIPE.md 8000
 # Single-file clones of Herdr's shipped agents and spaces mods, kept in the
 # shipped shape so each can be compared with a newer Herdr release.
 herdr/mods/coordinator-agents/main.js 9000

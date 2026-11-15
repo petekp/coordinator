@@ -59,7 +59,7 @@ Optional:
 - The [inbox](https://github.com/petekp/inbox) mod for Claude Code collects
   every question in one pane. The scripts read its saved questions when it
   is installed.
-- The coordinator sidebar is a Herdr layout in `herdr/`, described under
+- The Coordinator layout for Herdr is in `herdr/`, described under
   [Herdr sidebar](#herdr-sidebar).
 
 Tested on macOS with herdr-core 0.1.21, the Herdr app 0.1.15, Claude Code
@@ -99,7 +99,7 @@ coordinator tells you when it is. It never pulls by itself. To uninstall, run
 
 ## Herdr sidebar
 
-![Coordinator sidebar](herdr/preview.png)
+![The Coordinator layout](herdr/preview.png)
 
 The `herdr/` folder holds an optional Herdr layout made for this workflow.
 Its sidebar lists pinned coordinators first, in the order you drag them,
@@ -119,7 +119,13 @@ Add the Herdr layout at https://github.com/petekp/coordinator/tree/main/herdr
 
 The agent reads [herdr/RECIPE.md](herdr/RECIPE.md) and the layout's files,
 then tells you what the mods run. It asks before it changes your keys or
-your window.
+your window. It also offers the inbox plugin, whose Herdr panel is the one on
+the right of the picture.
+
+Once a day the sidebar's top row checks GitHub for a newer version of the
+layout, and shows a dot when one exists. Clicking the dot gives you a
+line to paste to your agent, which updates the files you haven't edited and
+asks about the rest. The agent asks at install whether to keep the check.
 
 ## Configure
 
