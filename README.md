@@ -119,7 +119,8 @@ Add the Herdr layout at https://github.com/petekp/coordinator/tree/main/herdr
 
 The agent reads [herdr/RECIPE.md](herdr/RECIPE.md) and the layout's files,
 then tells you what the mods run. It asks before it changes your keys or
-your window. It also offers the inbox plugin, which adds its own Herdr panel.
+your window. It also offers the inbox plugin, whose Herdr panel is the one on
+the right of the picture.
 
 Once a day the sidebar's top row checks GitHub for a newer version of the
 layout, and shows a dot when one exists. Clicking the dot gives you a
