@@ -645,8 +645,9 @@ export default class Agents extends View {
             .on_mouse_down("left", () => { this.pressOnFoldTile = true; })
             .on_click((e, cx) => toggleFold(a, e, cx)))
           .child(lead))
-        .child(this.nameCell(t, a.address, names.get(a.address), idle ? t.muted : t.foreground))
-        .when(Boolean(machine), el => el.child(div().text_size(10).text_color(t.dim).child(machine)))
+        .child(v_flex().flex_1().min_w(0).justify_center()
+          .child(h_flex().min_w(0).child(this.nameCell(t, a.address, names.get(a.address), idle ? t.muted : t.foreground)))
+          .when(Boolean(machine), el => el.child(div().mt(-3).text_size(9.5).text_color(t.dim).truncate().child(machine))))
         .child(this.status(t, { ...a, status: this.shownStatus(all, a) }, byPriority && !isPinned));
     };
 

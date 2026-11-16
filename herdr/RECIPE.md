@@ -29,7 +29,6 @@ The window is Herdr's `main` layout with three of its sidebar mods replaced. Lef
 - The row has no Herdr logo or name. Two 26px buttons sit at its right end, each with a 15px icon in `muted`.
 - The first button is search. The second is the sidebar toggle.
 - On macOS in a window, the row starts 76px from the left to leave room for the window buttons.
-- When the focused terminal runs on another machine than the window, an 18px pill with that machine's name sits left of the buttons, in 10.5px semibold `ansi3` on `ansi3` at 15% opacity. It is hidden on the rail and when the terminal is on this computer.
 - When a newer version of the layout exists, an 8px dot in `accent` sits left of search, centered in a 26px button like the other two. On the rail it waits until the sidebar is widened. Clicking it opens a 340×206px popup. The popup says which version is out and which one is installed, and shows the line "Update the Coordinator layout from herdr.dev/layouts/petekp/coordinator--herdr" with a Copy button. Copy puts that line on the clipboard and closes the popup.
 
 ### Spaces
@@ -62,7 +61,7 @@ The window is Herdr's `main` layout with three of its sidebar mods replaced. Lef
 - The lead icon is the agent's 18px letter tile on pinned rows, in Priority sort, and for a program without an icon. Otherwise it is the program's 16px icon.
 - The agent's tile has the space tile's shape and gradient, filled with the agent's own color. Its letter is the first letter of the agent's space's name.
 - The name is the tab's name if someone named it, otherwise the agent's own title. An automatic tab number shows as the program's name, unless two rows in one space would then read the same.
-- An agent on another machine shows that machine's name in 10px `dim` text.
+- An agent on another machine shows that machine's name under its own name, in 9.5px `dim` text.
 - The row of the agent on screen has the `selected` background.
 
 The inbox counts follow the name with an 8px gap. They are 11.5px text, at most 150px wide together, with a `dim` "·" between parts. In order they are why the agent stopped, then the Asks, Finds and PRs counts. Each part shows its label's text in its own color.
