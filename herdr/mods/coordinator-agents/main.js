@@ -486,6 +486,12 @@ export default class Agents extends View {
       .child(st === "blocked" ? blockedDot : this.status(t, { status: st }, compact));
   }
 
+  // An idle agent whose sub-agents, at any depth, are working shows as working.
+  shownStatus(all, a) {
+    const subWorking = a.status === "idle" && this.tree(all, a.address).some((s) => kidStatus(s.t, this.listed) === "working");
+    return subWorking ? "working" : a.status;
+  }
+
   // compact: a ! for blocked where a header already says "Needs you".
   status(t, a, compact = false) {
     const color = t[a.status] ?? t.dim;
@@ -569,7 +575,7 @@ export default class Agents extends View {
           .hover((s) => s.bg(t.hover))
           .on_click(() => run("pane.focus", { pane: a.pane }))
           .child(div().flex_1().min_w(0).whitespace_nowrap().text_right().text_color(t.muted).child(String(i + 1)))
-          .child(h_flex().w(14).flex_none().items_center().justify_center().child(this.status(t, a, true)));
+          .child(h_flex().w(14).flex_none().items_center().justify_center().child(this.status(t, { ...a, status: this.shownStatus(all, a) }, true)));
       }
       const idle = a.status === "idle" && a.address !== viewed;
       const isPinned = a.pinned;
@@ -640,7 +646,7 @@ export default class Agents extends View {
           .child(lead))
         .child(this.nameCell(t, a.address, names.get(a.address), idle ? t.muted : t.foreground))
         .when(Boolean(machine), el => el.child(div().text_size(10).text_color(t.dim).child(machine)))
-        .child(this.status(t, a, byPriority && !isPinned));
+        .child(this.status(t, { ...a, status: this.shownStatus(all, a) }, byPriority && !isPinned));
     };
 
     // Groups in list order: spaces (grouped) or priority sections. Agents of a

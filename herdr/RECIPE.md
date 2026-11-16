@@ -75,7 +75,7 @@ The inbox counts follow the name with an 8px gap. They are 11.5px text, at most 
 
 The status sits at the right end of each row.
 
-- Working is a 7px dot in `working` whose opacity fades between 25% and 100% every 1.7 seconds.
+- Working is a 7px dot in `working` whose opacity fades between 25% and 100% every 1.7 seconds. An idle agent shows it too while any of its sub-agents, at any depth, is working.
 - Blocked is an 18px "Needs you" pill in 10.5px semibold `blocked` text, on `blocked` at 15% opacity.
 - In a Priority section, where the header already says "Needs you", blocked is a 14px square with a "!" instead.
 - Done is a 7px dot in `done`.
