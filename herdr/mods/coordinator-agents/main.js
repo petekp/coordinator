@@ -486,9 +486,10 @@ export default class Agents extends View {
       .child(st === "blocked" ? blockedDot : this.status(t, { status: st }, compact));
   }
 
-  // An idle agent whose sub-agents, at any depth, are working shows as working.
+  // An idle or done agent whose sub-agents, at any depth, are working shows as working.
   shownStatus(all, a) {
-    const subWorking = a.status === "idle" && this.tree(all, a.address).some((s) => kidStatus(s.t, this.listed) === "working");
+    const isResting = a.status === "idle" || a.status === "done";
+    const subWorking = isResting && this.tree(all, a.address).some((s) => kidStatus(s.t, this.listed) === "working");
     return subWorking ? "working" : a.status;
   }
 
