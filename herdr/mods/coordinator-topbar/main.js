@@ -5,7 +5,8 @@
 
 import { View, div, svg } from "gpui-kit";
 import { h_flex, v_flex } from "gpui-base";
-import { theme, run, window, shared, setShared, layout, checking, props, openOverlay, closeOverlay } from "herdr";
+import { theme, run, window, shared, setShared, layout, checking, props, openOverlay, closeOverlay, focused, spaces } from "herdr";
+import { remoteMachineOf } from "./machine.js";
 
 // One more in each pull request that changes the layout for people who have it installed.
 // Keep "const LAYOUT_VERSION = <n>;" at the start of its line: installs read it there on GitHub,
@@ -75,6 +76,9 @@ function updateMarker(t) {
     .child(div().size(8).rounded(4).bg(t.accent));
 }
 
+// Names the computer a terminal runs on when it is not the one the window runs on.
+const machineChip = (t, name) => div().flex_none().px(6).h(18).rounded(5).bg(t.ansi3 + "26").text_size(10.5).font_semibold().text_color(t.ansi3).flex().items_center().child(name);
+
 export default class Topbar extends View {
   init(_props, cx) {
     const isPopup = Boolean(props()?.overlay);
@@ -91,9 +95,11 @@ export default class Topbar extends View {
     const t = theme();
     if (props()?.updatePopup) return updatePopup(t);
     const collapsed = narrow();
+    const machine = remoteMachineOf(focused(), spaces());
     return h_flex().size_full().bg(t.chrome).pl(collapsed ? 6 : 14).pr(10).gap(4).items_center().text_size(13.5)
       .when(window()?.platform === "macos" && !window()?.fullscreen && !collapsed, el => el.pl(76))
       .when(!collapsed, el => el.child(div().flex_1()))
+      .when(!collapsed && Boolean(machine), el => el.child(machineChip(t, machine)))
       // On the rail the marker waits until the sidebar is widened.
       .when(!collapsed && isUpdateAvailable(), el => el.child(updateMarker(t)))
       .when(!collapsed, el => el.child(this.button("search", svg("mods/workspace-chrome/search.svg").size(15), () => run("mod.open", { name: "picker" }))))

@@ -29,6 +29,7 @@ The window is Herdr's `main` layout with three of its sidebar mods replaced. Lef
 - The row has no Herdr logo or name. Two 26px buttons sit at its right end, each with a 15px icon in `muted`.
 - The first button is search. The second is the sidebar toggle.
 - On macOS in a window, the row starts 76px from the left to leave room for the window buttons.
+- When the focused terminal runs on another machine than the window, an 18px pill with that machine's name sits left of the buttons, in 10.5px semibold `ansi3` on `ansi3` at 15% opacity. It is hidden on the rail and when the terminal is on this computer.
 - When a newer version of the layout exists, an 8px dot in `accent` sits left of search, centered in a 26px button like the other two. On the rail it waits until the sidebar is widened. Clicking it opens a 340×206px popup. The popup says which version is out and which one is installed, and shows the line "Update the Coordinator layout from herdr.dev/layouts/petekp/coordinator--herdr" with a Copy button. Copy puts that line on the clipboard and closes the popup.
 
 ### Spaces
