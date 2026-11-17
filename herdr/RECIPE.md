@@ -53,7 +53,7 @@ The window is Herdr's `main` layout with three of its sidebar mods replaced. Lef
 
 ### Agents
 
-- The list has a 1px `border` line on top. A 41px header shows "Agents" in 11.5px `dim` text. At its right, a 14px icon shows the sort. It is a clock for Priority and layers for Grouped by space.
+- The list has a 1px `border` line on top. A 41px header shows "Agents" in 11.5px `dim` text. At its right, a 14px + in `dim` starts a new agent, and a 14px icon shows the sort. It is a clock for Priority and layers for Grouped by space.
 - Pinned agents come first, under "Pinned". The rest follow in one group per space, or in Priority sections.
 - The Priority sections are "Needs you" in `blocked`, "Done" in `done`, "Working" in `working` and "Idle" in `dim`. Each shows its count.
 - Group headers are 30px with 11px medium text.
@@ -88,6 +88,12 @@ Sub-agents sit under their parent, one 26px row each, indented 39px.
 - A blocked sub-agent shows a steady 7px dot in `blocked`, never the "Needs you" pill or the "!". Its questions go to its coordinator, and only the coordinator asks the person. The parent still takes the blocked sub-agent's place in Priority order.
 - The sub-agent on screen is drawn in `foreground` on the `raised` background. The others are `muted`.
 
+Tabs with no agent in them, such as a shell, have no agent row. They show in two places.
+
+- Under a pinned agent, after its sub-agents, a 26px row reads "n tabs" with a 14px chevron, folded at first. Opened, it lists that space's tabs one level deeper, each with its program's 14px icon, or a terminal icon for a shell, and its name in `muted`. A space with several pinned agents shows its tabs under the first.
+- Tabs of a space with no pinned agent go in one "Other tabs" group at the bottom, folded at first. Each row is 32px and shows its space's name at the right in 9.5px `dim` text.
+- A tab's name is the tab's name if someone named it, otherwise its program and folder, such as "zsh · Code". Two tabs in one space that read the same get " #" and their position added.
+
 With no agents, the list says "No agent status yet. Agents show up here when they report their status. Older versions and agents inside tmux may not."
 
 ### The agent menu
@@ -117,6 +123,8 @@ The 42px tab bar is hidden while the shown tab holds a pinned agent. It shows on
 
 ### Agents
 
+- The + opens a 220px popup with "In space", one row per space on this computer (up to 8, the shown space checked), and "Start", one row per installed agent program. Clicking a program starts it in a new tab of the checked space, in that space's folder, and shows it. A click outside closes the popup. The + is there with no agents too, and on the rail it is not shown.
+- Clicking a tab's row focuses its pane.
 - Clicking an agent's row focuses its pane. Clicking a sub-agent focuses its pane, or peeks at it when it has no pane.
 - Pin to the top moves the agent to the Pinned group, and Unpin moves it back. The pin is kept on the terminal, so every Herdr client sees it until the terminal ends.
 - A pinned row can be dragged. The drag starts once the pointer moves 4 points with the button held.
