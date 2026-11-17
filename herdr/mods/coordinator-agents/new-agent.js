@@ -1,7 +1,7 @@
 // The menu that starts an agent: a space, then a program. `view` is the mod instance that holds it.
 
 import { div, svg } from "gpui-kit";
-import { v_flex, h_flex } from "gpui-base";
+import { v_flex, h_flex, InputState, Input } from "gpui-base";
 import { spaces, focused, run, openOverlay, closeOverlay, props, knownAgents } from "herdr";
 import { spaceTile } from "./tile.js";
 import { icon } from "./icon.js";
@@ -10,6 +10,7 @@ const MAX_SPACES = 8;
 const ROW_HEIGHT = 31;
 const SECTION_HEIGHT = 26;
 const EMPTY_NOTE_HEIGHT = 26;
+const NAME_FIELD_HEIGHT = 38;
 
 // Only spaces on the machine the window runs on: a null machine.
 const localSpaces = () => spaces().filter((s) => !s.machine).slice(0, MAX_SPACES);
@@ -29,7 +30,10 @@ export async function loadPrograms(view) {
 }
 
 // The shown space is checked first; if it is on another machine, the first local one is.
-export function initNewMenu(view) {
+export function initNewMenu(view, cx) {
+  view.name = InputState.new({ placeholder: "Name (optional)" });
+  view.name.focus();
+  cx.timer.after(600, () => view.name.focus());
   const local = localSpaces();
   view.space = (local.find((s) => s.id === focused()?.space) ?? local.find((s) => s.active) ?? local[0])?.id;
 }
@@ -39,7 +43,7 @@ export async function openNewMenu(view) {
   const programs = view.programs ?? await installedPrograms();
   if (programs.length) view.programs = programs;
   const programsHeight = programs.length ? programs.length * ROW_HEIGHT : EMPTY_NOTE_HEIGHT;
-  const height = 20 + 2 * SECTION_HEIGHT + localSpaces().length * ROW_HEIGHT + programsHeight;
+  const height = 20 + NAME_FIELD_HEIGHT + 2 * SECTION_HEIGHT + localSpaces().length * ROW_HEIGHT + programsHeight;
   openOverlay({ mod: "coordinator-agents", kind: "popup", at: "pointer", width: 220, height, props: { newMenu: { programs } } });
 }
 
@@ -54,10 +58,13 @@ export function newMenu(t, view) {
     .when(on, (el) => el.child(svg("mods/workspace-chrome/check.svg").size(14).flex_none().text_color(t.foreground)));
   const heading = (text) => div().px(8).pt(4).pb(6).text_size(11).text_color(t.dim).child(text);
   const start = (program) => {
-    run("tab.new", { space: view.space, folder: spaces().find((s) => s.id === view.space)?.folder || undefined, argv: program.run });
+    const name = view.name.value().trim() || undefined;
+    run("tab.new", { name, space: view.space, folder: spaces().find((s) => s.id === view.space)?.folder || undefined, argv: program.run });
     closeOverlay(props().overlay);
   };
   return v_flex().w_full().p(5).bg(t.popover).text_size(12.8)
+    .child(h_flex().h(30).mx(3).mb(8).flex_none().px(8).items_center().rounded(7).border_1().border_color(t.accent).bg(t.background)
+      .child(Input.new(view.name).flex_1().h_full().text_size(12.8).text_color(t.foreground)))
     .child(heading("In space"))
     .children(localSpaces().map((s) => item(`new-space-${s.id}`, spaceTile(t, { id: s.id, name: s.name }), s.name, s.id === view.space, (_e, cx) => {
       view.space = s.id;

@@ -68,7 +68,7 @@ const SECTION_STATUS = { 4: "blocked", 3: "done", 2: "working" };
 
 export default class Agents extends View {
   init(_props, cx) {
-    if (props()?.newMenu) return initNewMenu(this);
+    if (props()?.newMenu) return initNewMenu(this, cx);
     if (props()?.sortMenu || props()?.agentMenu) return;
     // Each agent's last state and when it changed (ms), kept across restarts.
     try { this.changed = JSON.parse(localStorage.getItem("changed") ?? "{}"); } catch { this.changed = {}; }
