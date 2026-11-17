@@ -5,8 +5,8 @@ import { View, div, image, svg } from "gpui-kit";
 import { spaceTile } from "./tile.js";
 import { icon } from "./icon.js";
 import { leadPanes, title } from "./tab-names.js";
-import { NEW_AGENT, groupButton, headerButton, initNewMenu, loadPrograms, newMenu, newRow } from "./new-agent.js";
-import { OTHER_TABS, OTHER_TABS_GROUP, addOtherTabGroups, otherTabs, tabRow } from "./other-tabs.js";
+import { headerButton, initNewMenu, loadPrograms, newMenu } from "./new-agent.js";
+import { OTHER_TABS_GROUP, continued, otherTabs, splitTabs, tabRow, tabsSection, treeLines } from "./other-tabs.js";
 import { LABEL, palette, indexOf, nextIndex } from "./colors.js";
 import { v_flex, h_flex, InputState, Input } from "gpui-base";
 import { agents, terminals, panes, focused, spaces, run, hc, theme, settings, shared, setShared, setAgentOrder, openOverlay, closeOverlay, props, window, layout } from "herdr";
@@ -77,6 +77,8 @@ export default class Agents extends View {
     // Colors written but not yet echoed back as labels, by terminal address.
     this.pendingColors = new Map();
     this.folded = new Set([OTHER_TABS_GROUP]);
+    // Pinned agents whose tabs are shown, by address.
+    this.tabsOpen = new Set();
     loadPrograms(this, cx);
     try { this.pendingPins = JSON.parse(localStorage.getItem("pins") ?? "[]"); } catch { this.pendingPins = []; }
     if (!Array.isArray(this.pendingPins)) this.pendingPins = [];
@@ -452,9 +454,7 @@ export default class Agents extends View {
       .when(on, (el) => el.bg(t.raised))
       .hover((s) => s.bg(t.hover))
       .on_click(() => (this.listed.has(k.address) ? run("pane.focus", { terminal: k.address }) : this.peek(k.address)))
-      .children(s.lines.map(l => div().self_start().mt(-4).w(9).h(17).mr(4).flex_none()
-        .when(Boolean(l), el => el.border_l(1.5).border_color(t.input))
-        .when(l === "└" || l === "├", el => el.border_b(1.5).rounded_bl(6))))
+      .children(treeLines(t, s.lines))
       .when(Boolean(pic), el => el.child(div().mr(8).child(pic)))
       .child(this.nameCell(t, k.address, k.name || k.template || k.program?.name || k.address, on ? t.foreground : t.muted))
       .child(st === "blocked" ? blockedDot : this.status(t, { status: st }, compact));
@@ -505,14 +505,18 @@ export default class Agents extends View {
     const { list, pinned, rest, rankOf } = this.ordered(all, collapsed);
     setAgentOrder(list.map((a) => a.address));
 
-    const others = otherTabs();
-    const otherBySpace = Map.groupBy(others, (o) => o.space.id);
+    const { ownedBy, rest: unownedTabs } = collapsed ? { ownedBy: new Map(), rest: [] } : splitTabs(otherTabs(), pinned);
     const withKids = (a, i) => {
       const subs = collapsed ? [] : this.tree(all, a.address);
-      const tabs = OTHER_TABS === "unfold" && a.pinned && !collapsed ? (otherBySpace.get(a.space) ?? []) : [];
-      const r = row(a, i, [...subs, ...tabs]);
+      const r = row(a, i, subs);
       if (this.folded.has(a.address)) return [r];
-      return [r, ...subs.map((s) => this.subRow(t, s, shown, byPriority)), ...tabs.map((o) => tabRow(t, o, { nested: true }))];
+      const tabs = ownedBy.get(a.address);
+      const shownSubs = tabs ? continued(subs) : subs;
+      const toggle = (_e, cx) => {
+        this.tabsOpen.has(a.address) ? this.tabsOpen.delete(a.address) : this.tabsOpen.add(a.address);
+        cx.notify();
+      };
+      return [r, ...shownSubs.map((s) => this.subRow(t, s, shown, byPriority)), ...(tabs ? tabsSection(t, tabs, this.tabsOpen.has(a.address), toggle) : [])];
     };
 
     // Folds or opens an agent's sub-agents. With Option, every agent's, to match the one clicked.
@@ -636,10 +640,10 @@ export default class Agents extends View {
       const r = rankOf(a) || RANK.idle;
       const id = byPriority ? `sec-${r}` : `sp-${a.space}`;
       if (groups.at(-1)?.id === id) groups.at(-1).members.push(a);
-      else groups.push({ id, space: a.space, label: byPriority ? SECTION[r] : a.space_name || "", status: byPriority ? SECTION_STATUS[r] : null, members: [a] });
+      else groups.push({ id, label: byPriority ? SECTION[r] : a.space_name || "", status: byPriority ? SECTION_STATUS[r] : null, members: [a] });
     }
 
-    addOtherTabGroups(groups, others, otherBySpace, byPriority);
+    if (unownedTabs.length) groups.push({ id: OTHER_TABS_GROUP, label: "Other tabs", status: null, members: unownedTabs, showSpace: true });
 
     // A group's header; it folds the group. Folded, it says how many and the most urgent state.
     const header = (g) => {
@@ -664,7 +668,6 @@ export default class Agents extends View {
         .child(div().truncate().text_color(t[g.status] ?? t.dim).child(g.label))
         .when(byPriority || !open, (el) => el.child(div().text_color(t.dim).child(String(g.members.length))))
         .child(div().flex_1())
-        .when(NEW_AGENT === "group" && g.space, (el) => el.child(groupButton(t, this, g.space, g.id)))
         .when(!open, (el) => el
           .when(!byPriority && top && top !== "idle", (el) => el.child(this.status(t, { status: top }, true)))
           .child(svg("mods/workspace-chrome/chevron-right.svg").size(11).flex_none().text_color(t.dim)));
@@ -699,7 +702,7 @@ export default class Agents extends View {
             .justify_between()
             .child(div().text_size(11.5).font_medium().text_color(t.dim).child("Agents"))
             .child(h_flex().gap(8).items_center()
-              .when(NEW_AGENT === "header", (el) => el.child(headerButton(t, this)))
+              .child(headerButton(t, this))
               .child(
               div()
                 .id("ag-sort")
@@ -715,8 +718,7 @@ export default class Agents extends View {
       .when(list.length === 0 && !collapsed, (el) =>
         el.child(div().px(12).text_size(12).text_color(t.dim).child("No agent status yet. Agents show up here when they report their status. Older versions and agents inside tmux may not.")),
       )
-      .child(v_flex().id("ag-list").flex_1().min_h(0).px(collapsed ? 0 : 8).overflow_y_scrollbar().mode("always").children(rows)
-        .when(NEW_AGENT === "row" && !collapsed, (el) => el.child(newRow(t, this))))
+      .child(v_flex().id("ag-list").flex_1().min_h(0).px(collapsed ? 0 : 8).overflow_y_scrollbar().mode("always").children(rows))
       .when(collapsed, (el) =>
         el.child(
           h_flex()
