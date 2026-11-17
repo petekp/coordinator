@@ -1,5 +1,5 @@
 import { div, svg } from "gpui-kit";
-import { h_flex } from "gpui-base";
+import { h_flex, v_flex } from "gpui-base";
 import { agents, panes, spaces, focused, run } from "herdr";
 import { icon } from "./icon.js";
 import { leadPanes, title } from "./tab-names.js";
@@ -8,11 +8,13 @@ export const OTHER_TABS_GROUP = "other-tabs";
 
 // Tabs with no agent, in space order: they have no row in the agents list.
 // Two in one space that would read the same get their position added.
+// A settled tab (put away on this screen) is left out unless it is the shown one.
 export function otherTabs() {
+  const shownTab = focused()?.tab;
   const agentTabs = new Set(agents().map((a) => a.tab));
   const leads = leadPanes(panes());
   const found = spaces().flatMap((space) => space.tabs
-    .filter((tab) => !agentTabs.has(tab.id))
+    .filter((tab) => !agentTabs.has(tab.id) && (!tab.settled || tab.id === shownTab))
     .map((tab) => {
       const lead = leads.get(tab.id);
       const named = title(tab, lead);
@@ -54,7 +56,10 @@ export function tabRow(t, o, { lines = null, showSpace = false } = {}) {
   const on = tab.id === focused()?.tab;
   const size = lines ? 14 : 16;
   const pic = (lead?.program?.shell ? null : icon(lead?.program, size, t.muted, true)) ?? svg("mods/workspace-chrome/terminal.svg").size(size).flex_none().text_color(t.dim);
-  const label = div().flex_1().min_w(0).truncate().text_color(on ? t.foreground : t.muted).child(name);
+  const machine = lines ? null : space.machine;
+  const label = v_flex().flex_1().min_w(0).justify_center()
+    .child(div().truncate().text_color(on ? t.foreground : t.muted).child(name))
+    .when(Boolean(machine), (el) => el.child(div().mt(-3).text_size(9.5).text_color(t.dim).truncate().child(machine)));
   return (lines ? nestedRow(`tab-${tab.id}`, treeLines(t, lines)).child(div().mr(8).child(pic)) : h_flex().id(`tab-${tab.id}`).px(8).h(32).flex_none().rounded(8).items_center().gap(9).text_size(14).cursor_pointer().child(pic))
     .when(on, (el) => el.bg(t.selected))
     .hover((s) => s.bg(t.hover))

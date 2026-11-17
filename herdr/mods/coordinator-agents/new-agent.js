@@ -9,31 +9,42 @@ import { icon } from "./icon.js";
 const MAX_SPACES = 8;
 const ROW_HEIGHT = 31;
 const SECTION_HEIGHT = 26;
-const FALLBACK_PROGRAM_ROWS = 3;
+const EMPTY_NOTE_HEIGHT = 26;
 
 // Only spaces on the machine the window runs on: a null machine.
 const localSpaces = () => spaces().filter((s) => !s.machine).slice(0, MAX_SPACES);
 
-export function loadPrograms(view, cx) {
-  knownAgents().then((list) => {
-    view.programs = list.filter((p) => p.installed);
-    cx.notify();
-  }, () => {});
+async function installedPrograms() {
+  try {
+    return (await knownAgents()).filter((p) => p.installed);
+  } catch {
+    return [];
+  }
+}
+
+// Asked ahead of the first click, so the popup usually opens at once.
+export async function loadPrograms(view) {
+  const programs = await installedPrograms();
+  if (programs.length) view.programs = programs;
 }
 
 // The shown space is checked first; if it is on another machine, the first local one is.
-export function initNewMenu(view, cx) {
+export function initNewMenu(view) {
   const local = localSpaces();
   view.space = (local.find((s) => s.id === focused()?.space) ?? local.find((s) => s.active) ?? local[0])?.id;
-  loadPrograms(view, cx);
 }
 
-export function openNewMenu(view) {
-  const height = 20 + 2 * SECTION_HEIGHT + (localSpaces().length + (view.programs?.length || FALLBACK_PROGRAM_ROWS)) * ROW_HEIGHT;
-  openOverlay({ mod: "coordinator-agents", kind: "popup", at: "pointer", width: 220, height, props: { newMenu: true } });
+// The popup's size is fixed when it opens, so it opens once the programs are known.
+export async function openNewMenu(view) {
+  const programs = view.programs ?? await installedPrograms();
+  if (programs.length) view.programs = programs;
+  const programsHeight = programs.length ? programs.length * ROW_HEIGHT : EMPTY_NOTE_HEIGHT;
+  const height = 20 + 2 * SECTION_HEIGHT + localSpaces().length * ROW_HEIGHT + programsHeight;
+  openOverlay({ mod: "coordinator-agents", kind: "popup", at: "pointer", width: 220, height, props: { newMenu: { programs } } });
 }
 
 export function newMenu(t, view) {
+  const { programs } = props().newMenu;
   const item = (id, lead, label, on, click) => h_flex()
     .id(id).h(ROW_HEIGHT).px(8).gap(9).rounded(7).items_center().text_color(t.foreground)
     .hover((el) => el.bg(t.hover))
@@ -54,7 +65,7 @@ export function newMenu(t, view) {
     })))
     .child(div().mx(3).my(4).h(1).bg(t.border))
     .child(heading("Start"))
-    .children((view.programs ?? []).map((p) => item(`new-${p.key}`, icon(p, 16, t.muted) ?? div().size(16), p.name, false, () => start(p))));
+    .children(programs.length ? programs.map((p) => item(`new-${p.key}`, icon(p, 16, t.muted) ?? div().size(16), p.name, false, () => start(p))) : [div().px(8).text_size(12).text_color(t.dim).child("No agent programs found.")]);
 }
 
 export const headerButton = (t, view) => div().id("ag-new").text_color(t.dim)

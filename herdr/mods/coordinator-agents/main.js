@@ -1,7 +1,7 @@
 // Agents in grouped or priority views; parents take their most urgent sub-agent's place.
 // Opened with mod.open (Cmd-K), it's the agent jumper: the top-level agents, in the list's order.
 
-import { View, div, image, svg } from "gpui-kit";
+import { View, div, svg } from "gpui-kit";
 import { spaceTile } from "./tile.js";
 import { icon } from "./icon.js";
 import { leadPanes, title } from "./tab-names.js";
@@ -68,7 +68,7 @@ const SECTION_STATUS = { 4: "blocked", 3: "done", 2: "working" };
 
 export default class Agents extends View {
   init(_props, cx) {
-    if (props()?.newMenu) return initNewMenu(this, cx);
+    if (props()?.newMenu) return initNewMenu(this);
     if (props()?.sortMenu || props()?.agentMenu) return;
     // Each agent's last state and when it changed (ms), kept across restarts.
     try { this.changed = JSON.parse(localStorage.getItem("changed") ?? "{}"); } catch { this.changed = {}; }
@@ -79,7 +79,7 @@ export default class Agents extends View {
     this.folded = new Set([OTHER_TABS_GROUP]);
     // Pinned agents whose tabs are shown, by address.
     this.tabsOpen = new Set();
-    loadPrograms(this, cx);
+    loadPrograms(this);
     try { this.pendingPins = JSON.parse(localStorage.getItem("pins") ?? "[]"); } catch { this.pendingPins = []; }
     if (!Array.isArray(this.pendingPins)) this.pendingPins = [];
     if (!this.pendingPins.length) localStorage.removeItem("pins");
