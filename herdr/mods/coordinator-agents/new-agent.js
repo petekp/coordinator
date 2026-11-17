@@ -7,7 +7,7 @@ import { spaceTile } from "./tile.js";
 import { icon } from "./icon.js";
 
 // Where the control for a new agent sits: "header", "group" or "row".
-export const NEW_AGENT = "header";
+export const NEW_AGENT = "group";
 const MAX_SPACES = 8;
 const ROW_HEIGHT = 31;
 
