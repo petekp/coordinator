@@ -353,7 +353,9 @@ export default class Agents extends View {
 
   // An agent's right-click menu: pin or unpin it, and pick its color.
   agentMenu(t, address) {
-    const pinned = Boolean(agents().find((a) => a.address === address)?.pinned);
+    const agent = agents().find((a) => a.address === address);
+    const pinned = Boolean(agent?.pinned);
+    const tab = agent?.tab;
     const mine = indexOf(terminals().find((x) => x.address === address)?.labels?.[LABEL]);
     const done = () => closeOverlay(props().overlay);
     return v_flex()
@@ -376,6 +378,21 @@ export default class Agents extends View {
         })
         .child(svg(`mods/workspace-chrome/${pinned ? "pin-off" : "pin"}.svg`).size(14).flex_none().text_color(t.muted))
         .child(div().flex_1().child(pinned ? "Unpin" : "Pin to the top")))
+      .when(Boolean(tab), (el) => el.child(h_flex()
+        .id("agent-rename")
+        .h(31)
+        .px(8)
+        .gap(9)
+        .rounded(7)
+        .items_center()
+        .text_color(t.foreground)
+        .hover((s) => s.bg(t.hover))
+        .on_click(() => {
+          done();
+          run("tab.rename", { id: tab });
+        })
+        .child(svg("mods/workspace-chrome/square-pen.svg").size(14).flex_none().text_color(t.muted))
+        .child(div().flex_1().child("Rename"))))
       .child(div().mx(3).my(4).h(1).bg(t.border))
       .child(div().px(8).pt(2).pb(6).text_size(11).text_color(t.dim).child("Color"))
       .child(h_flex().px(8).pb(5).flex_wrap().gap(8).children(palette(t).map((color, index) => div()
@@ -620,7 +637,7 @@ export default class Agents extends View {
           }))
         .on_mouse_down("right", (_e, cx) => {
           cx.stop_propagation();
-          openOverlay({ mod: "coordinator-agents", kind: "popup", at: "pointer", width: 168, height: 204, props: { agentMenu: a.address } });
+          openOverlay({ mod: "coordinator-agents", kind: "popup", at: "pointer", width: 168, height: 235, props: { agentMenu: a.address } });
         })
         .child(div().id(`agent-fold-${a.address}`)
           .when(subs.length > 0, el => el
