@@ -5,7 +5,7 @@ import { icon } from "./icon.js";
 import { leadPanes, title } from "./tab-names.js";
 
 // How tabs without an agent are listed: "groups", "folded" or "unfold".
-export const OTHER_TABS = "folded";
+export const OTHER_TABS = "unfold";
 export const OTHER_TABS_GROUP = "other-tabs";
 
 // Tabs with no agent, in space order: they have no row in the agents list.
