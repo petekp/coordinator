@@ -108,6 +108,9 @@ A watcher holds a lock on <state>.lock while it runs. Starting one stops
 the watcher holding that lock. Under Claude Code, a watcher started with a
 trailing & cannot wake the session when it exits, so it refuses to start
 and messages the owner instead.
+
+While it runs, it labels its terminal fleet.waiting.<task ID>, as
+waiting_label.py says.
 """
 import argparse
 import json
@@ -124,7 +127,6 @@ GATHER_SECONDS = 15
 NON_URGENT_GAP_SECONDS = 600
 ALIVE_SECONDS = 600
 BLIND_SECONDS = 900
-SECONDS_ASLEEP_THAT_COUNT_AS_A_SLEEP = 30
 UNKNOWN_SECONDS = 300
 COMMAND_TIMEOUT_SECONDS = 60
 OWNER_MISSES_BEFORE_GONE = 2
@@ -138,7 +140,9 @@ sys.path.insert(0, os.path.dirname(os.path.realpath(__file__)))
 import backlog  # noqa: E402
 import fleet  # noqa: E402
 from due_steps import due_lines  # noqa: E402
+from mac_clock import MacClock  # noqa: E402
 from update_check import update_line  # noqa: E402
+from waiting_label import declare_waiting  # noqa: E402
 from watch_domain import (adopt_earlier_pr, copy_to_same_pr, copy_to_same_terminal, domain_member_names,  # noqa: E402
                           domain_pull_requests, given_terminals, named, slug_spec, under_watch_names,
                           watched_agent_names, watched_pr_specs, written_before_domain)
@@ -167,43 +171,6 @@ def transcript_marks(agent):
         return fleet.transcript_marks(fleet.session_of(agent))
     except Exception:
         return None, None
-
-
-class MacClock:
-    """The time, and how long this Mac has stayed awake since an earlier time.
-
-    time.monotonic() stops while the Mac sleeps and time.time() keeps
-    running, so wall time that passed with no monotonic time is a sleep.
-    time.monotonic() starts again from zero when the Mac restarts, so a
-    lower reading than the last is a restart. Both count as a wake.
-
-    last_reading is the reading an earlier watcher saved. It carries the
-    last wake that watcher saw, and shows a sleep between the two watchers.
-    """
-
-    def __init__(self, last_reading=None):
-        try:
-            self.wall, self.awake, *saved_wake = (float(value) for value in last_reading)
-        except (TypeError, ValueError):
-            self.wall, self.awake, saved_wake = time.time(), time.monotonic(), []
-        self.mac_woke_at = saved_wake[0] if saved_wake else 0
-        self.read()
-
-    def read(self):
-        wall, awake = time.time(), time.monotonic()
-        seconds_asleep = (wall - self.wall) - (awake - self.awake)
-        if awake < self.awake or seconds_asleep >= SECONDS_ASLEEP_THAT_COUNT_AS_A_SLEEP:
-            self.mac_woke_at = wall
-        self.wall, self.awake = wall, awake
-        return wall
-
-    def reading(self):
-        return [self.wall, self.awake, self.mac_woke_at]
-
-    def awake_seconds_since(self, wall_time):
-        """Seconds since wall_time, or since the Mac last woke when that is later."""
-        now = self.read()
-        return now - max(wall_time, self.mac_woke_at)
 
 
 def live_agents():
@@ -339,7 +306,7 @@ def rule_lines(domain):
     return lines
 
 
-def print_rules(agents, owner):
+def print_rules(agents, owner, stop_waiting):
     """New lines may fail; the events above them are already printed and saved.
 
     A newer watcher's SIGTERM in this window ends the process without
@@ -347,7 +314,7 @@ def print_rules(agents, owner):
     """
     def give_up(signum, frame):
         raise RulesTimeout()
-    signal.signal(signal.SIGTERM, lambda signum, frame: os._exit(0))
+    signal.signal(signal.SIGTERM, lambda signum, frame: (stop_waiting(), os._exit(0)))
     try:
         owning_agent = next((a for a in agents or [] if a["address"] == owner), None)
         if not owning_agent or owning_agent["role"] != "coordinator" or not owning_agent["domain"]:
@@ -476,6 +443,7 @@ def main():
         print(f"locked {lock}", flush=True)
         return 2
     signal.signal(signal.SIGTERM, print_stopped_and_exit)
+    stop_waiting = declare_waiting()
 
     saved = load(args.state) or {}
     agents_seen = saved.get("agents", {}) if saved.get("source") == STATE_SOURCE else {}
@@ -615,7 +583,7 @@ def main():
             except Exception:
                 pass
             if args.owner:
-                print_rules(agents, args.owner)
+                print_rules(agents, args.owner, stop_waiting)
             return 0
         if now >= next_alive_at:
             print("alive", flush=True)

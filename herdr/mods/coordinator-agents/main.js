@@ -8,6 +8,7 @@ import { leadPanes, title } from "./tab-names.js";
 import { headerButton, initNewMenu, loadPrograms, newMenu } from "./new-agent.js";
 import { OTHER_TABS_GROUP, continued, otherTabs, splitTabs, tabRow, tabsSection, treeLines } from "./other-tabs.js";
 import { LABEL, palette, indexOf, nextIndex } from "./colors.js";
+import { agentsWithWaitingAsIdle, waitingAsIdle } from "./waiting.js";
 import { v_flex, h_flex, InputState, Input } from "gpui-base";
 import { agents, terminals, panes, focused, spaces, run, hc, theme, settings, shared, setShared, setAgentOrder, openOverlay, closeOverlay, props, window, layout } from "herdr";
 
@@ -44,9 +45,10 @@ function toggleSidebar() {
 
 const RANK = { blocked: 4, done: 3, working: 2, idle: 1 };
 // A sub-agent without a pane isn't in agents(): its raw word, error counting as
-// blocked. It's never done: it reports to its parent, and the parent's done is the news.
+// blocked and a declared waiter as idle. It's never done: it reports to its
+// parent, and the parent's done is the news.
 const kidStatus = (k, listed) => {
-  const s = listed.get(k.address) ?? k.status;
+  const s = listed.get(k.address) ?? waitingAsIdle(k.status, k);
   return s === "error" ? "blocked" : s === "done" ? "idle" : s;
 };
 const SORTS = [
@@ -164,7 +166,7 @@ export default class Agents extends View {
   // of its own, unless it's pinned.
   ordered(all, collapsed) {
     const byPriority = sortOf().id === "priority";
-    const every = agents();
+    const every = agentsWithWaitingAsIdle(agents(), all);
     const nested = new Set(collapsed ? [] : every.flatMap((a) => this.tree(all, a.address).map((s) => s.t.address)));
     let list = every.filter((a) => a.pinned || !nested.has(a.address));
     const urgency = new Map(list.map((a) => [a.address, Math.max(this.rank(a), ...this.tree(all, a.address).map((s) => RANK[kidStatus(s.t, this.listed)] ?? 0))]));
@@ -211,7 +213,7 @@ export default class Agents extends View {
 
   // The jumper's rows: top-level agents in the list's order, matching the typed filter.
   jumpRows(all) {
-    this.listed = new Map(agents().map((a) => [a.address, a.status]));
+    this.listed = new Map(agentsWithWaitingAsIdle(agents(), all).map((a) => [a.address, a.status]));
     const { list, nested } = this.ordered(all, false);
     const top = list.filter((a) => !nested.has(a.address));
     const names = this.names(top);
@@ -505,9 +507,9 @@ export default class Agents extends View {
     const collapsed = narrow();
     const sort = sortOf();
     const byPriority = sort.id === "priority";
-    const every = agents();
-    this.listed = new Map(every.map((a) => [a.address, a.status]));
     const all = terminals();
+    const every = agentsWithWaitingAsIdle(agents(), all);
+    this.listed = new Map(every.map((a) => [a.address, a.status]));
     this.migratePins(all);
     this.colorOf = this.ensureColors(every);
     this.labelsOf = new Map(all.map((x) => [x.address, x.labels ?? {}]));
