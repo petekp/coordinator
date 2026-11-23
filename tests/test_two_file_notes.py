@@ -11,6 +11,7 @@ from tests.helpers import COORD_SCRIPTS, Sandbox, add_script_paths
 
 add_script_paths()
 import backlog  # noqa: E402
+import notes_files  # noqa: E402
 
 
 def notes_file(open_items: str = "- **Item one.** Waits on PR #3.\n", extra: str = "") -> str:
@@ -164,27 +165,71 @@ class TestTwoFileNotes(unittest.TestCase):
         before_notes, before_later = self.sb.root / "notes.md", self.sb.root / "later.md"
         before_notes.write_text(notes)
         before_later.write_text(later_file("- **Parked.** Ask: keep? I recommend yes.\n- Gone (11-03: \"Drop it\").\n"))
-        res = self.check("--before", str(before_notes), str(before_later), "--terminals", str(self.terms))
+        res = self.check("--before", str(before_notes), "--before", str(before_later), "--terminals", str(self.terms))
         self.assertIn('LOST  the user\'s words, 1 of 1 places: "Drop it"', res.stdout)
         self.assertNotIn("Ask: keep", res.stdout)
+        res = self.sb.run_script(COORD_SCRIPTS / "backlog_check.py", "--before", str(before_notes), "demo",
+                                 "--terminals", str(self.terms))
+        self.assertNotIn("Drop it", res.stdout)
+        self.assertEqual(res.returncode, 0, res.stdout + res.stderr)
 
     def test_dead_local_paths_are_checked_outside_done_and_code(self):
         here = self.sb.root
-        open_items = (f"- Exists: `{here}`, and [a link](config.json) beside the notes.\n"
-                      "- Gone: ~/no-such-folder-for-this-test/a and [gone](missing.md).\n"
-                      "- A placeholder: ~/no-such-folder-for-this-test/<name>/x, and /compact.\n"
+        (here / "Two words.md").write_text("")
+        open_items = (f"- Exists: `{here}`, `{here}/Two words.md` and {here}/Two words.md, then more.\n"
+                      f"- Wrapped: `{here}/Two\n  words.md`.\n"
+                      f"- A command: `{COORD_SCRIPTS / 'fleet.py'} --domain demo`.\n"
+                      "- Gone: ~/no-such-folder-for-this-test/a and `~/no-such-folder-for-this-test/b --flag`.\n"
+                      f"- Gone too: {here}/no-such-file.md and `{here}/Gone file.md`.\n"
+                      "- Not paths: /sync/v2/events, /ios/loop, /dev/composer-notices, /src/app/AGENTS.md, "
+                      "[a link](missing.md) and ….\n"
+                      "- A placeholder: ~/no-such-folder-for-this-test/<name>/x, `~/no-such-folder-for-this-test/a-….png` "
+                      "and /compact.\n"
                       "```\n~/no-such-folder-for-this-test/in-code\n```\n")
-        (self.sb.backlog_dir / "config.json").write_text("{}")
         self.sb.write_notes("demo", notes_file(open_items), later_file(done="- 11-15 Done ~/no-such-folder-for-this-test/old\n"))
         res = self.check()
         checks = [line for line in res.stdout.splitlines() if line.startswith("CHECK")]
-        self.assertEqual(checks, [
-            "CHECK  local path that does not exist: missing.md, in demo-notes.md, ## Open",
-            "CHECK  local path that does not exist: ~/no-such-folder-for-this-test/a, in demo-notes.md, ## Open",
+        self.assertCountEqual(checks, [
+            f"CHECK  local path that does not exist: {path}, in demo-notes.md, ## Open"
+            for path in ("~/no-such-folder-for-this-test/a", "~/no-such-folder-for-this-test/b", f"{here}/no-such-file.md",
+                         f"{here}/Gone file.md")
         ])
-        (self.sb.backlog_dir / "demo-later.md").unlink()
+
+    def test_notes_with_no_done_and_no_second_file_are_in_one_piece(self):
+        notes = self.sb.write_notes("demo", notes_file("- " + "q" * 25_000 + "\n"))
         res = self.check()
-        self.assertIn(f"CHECK  local path that does not exist: {self.sb.backlog_dir / 'demo-later.md'}", res.stdout)
+        self.assertEqual(res.returncode, 0, res.stdout)
+        self.assertNotIn("CHECK", res.stdout)
+        out = self.resume()
+        self.assertTrue(out.startswith(f"{notes}\n\n## Boundary\nOwns demo."), out[:200])
+        self.assertNotIn("Later", out)
+
+    def test_a_done_heading_with_more_words_keeps_the_file_in_one_piece(self):
+        self.sb.write_notes("demo", notes_file() + "\n## Done (newest first)\n" + done_lines(130), later_file())
+        notes = backlog.Notes(notes_files.domain_files("demo", self.sb.backlog_dir))
+        self.assertFalse(notes.two_files)
+        self.assertTrue(notes.second_file_ignored)
+        self.assertGreater(backlog.size(notes.done()), 20_000)
+        self.assertLess(notes.read_at_start(), 1_000)
+
+    def test_a_done_heading_inside_a_code_fence_is_text(self):
+        fenced = "- Keep one.\n```\n## Done\n- 2020-01-01 An example.\n```\n- Keep two.\n"
+        self.assertEqual(notes_files.section_text(f"## Open\n{fenced}## Done\n- Real.\n", "## Done"), "- Real.")
+        path = self.sb.write_backlog("demo", notes_file(fenced) + "\n## Done\n" + done_lines(130))
+        self.check("--cut-done")
+        text = path.read_text()
+        self.assertIn(fenced, text)
+        self.assertLessEqual(backlog.size(backlog.done_of(text)), 10_000)
+
+    def test_only_a_file_with_an_open_section_is_a_domain(self):
+        folder = self.sb.backlog_dir
+        (folder / "release-notes.md").write_text("# Release notes\n\n## 1.2\n- Fixes.\n")
+        (folder / "ops-notes.md").write_text("# Ops notes\n\n```\n## Open\n```\n")
+        (folder / "ops-backlog.md").write_text("# ops\n\n## Open\n- One.\n")
+        self.sb.write_notes("demo", notes_file(), later_file())
+        self.assertEqual(notes_files.domains_in(folder), ["demo", "ops"])
+        ops = notes_files.domain_files("ops", folder)
+        self.assertEqual((ops.notes, ops.stray), (folder / "ops-backlog.md", None))
 
     def test_a_separate_file_under_the_older_name_is_named_and_a_link_is_not(self):
         notes = self.sb.write_notes("demo", notes_file(), later_file())

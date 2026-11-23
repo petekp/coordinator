@@ -56,8 +56,6 @@ def one_piece(notes: backlog.Notes) -> str:
 
 def later_lines(notes: backlog.Notes) -> str:
     later = notes.files.later
-    if not later.is_file():
-        return f"No second file at {later}, so nothing is parked in Later."
     every = notes.later_items()
     if not every:
         return f"Later, in {later}: no items."

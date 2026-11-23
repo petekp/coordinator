@@ -6,12 +6,13 @@ A notes file in one piece holds Boundary, Standing yes, Open and Done. The
 coordinator reads everything outside Done at each start and after each
 compaction, so that part has a limit, 40 KB, and Done has its own, 20 KB.
 
-A notes file in two files has no Done section. Its Later and Done sections
-are in <domain>-later.md beside it, which the coordinator searches and does
+A notes file in two files has no Done section, and its Later and Done
+sections are in <domain>-later.md beside it, which the coordinator searches and does
 not read whole. The coordinator reads the notes file whole, so the whole
 file has the limit, 20 KB. Done's limit is 100 KB and Later's is 40 KB.
-Only the notes file decides its shape: a second file that appears while the
-notes file still has a Done section leaves it a file in one piece.
+A notes file with a Done section is in one piece even when a second file
+exists, and so is one with neither, such as a new domain's. A Done heading
+may carry more words, as in "## Done (newest first)".
 
 notes_limit_kb in the config, or its older name backlog_limit_kb, sets the
 first limit for either shape, and done_limit_kb sets Done's. A notes file
@@ -21,6 +22,7 @@ for its coordinator to read whole, so one delegate trims it.
 
 from __future__ import annotations
 
+import itertools
 import os
 import re
 from pathlib import Path
@@ -43,12 +45,13 @@ LIST_ITEM = re.compile(r"^(?:[-*+]|\d+[.)])\s")
 BLOCK_HEADING = re.compile(r"^### ")
 FENCE = re.compile(r"^\s*(?:```|~~~)")
 HOLDS_AN_ASK = re.compile(r"(?<!\w)Ask:")
-MARKDOWN_LINK = re.compile(r"\[[^\]\n]*\]\(<?([^)\s>]+)>?(?:\s+\"[^\"]*\")?\)")
 HOME_PATH = re.compile(r"(?<![\w.:/~@%+<>}-])~/[\w.@%+-]+(?:/[\w.@%+-]*)*")
 ABSOLUTE_PATH = re.compile(r"(?<![\w.:/~@%+<>}-])/[\w.@%+-]+(?:/[\w.@%+-]+)+/?")
-URL_SCHEME = re.compile(r"^[a-zA-Z][a-zA-Z0-9+.-]*:")
+WORDS_TRIED_AFTER_A_PATH = 8
+CHARACTERS_TRIED_AFTER_A_PATH = 200
+ROOTS_THAT_HOLD_NO_NOTES = ("/dev/",)
 CODE_SPAN = re.compile(r"`([^`\n]+)`")
-TEMPLATE_AFTER_A_PATH = tuple("<{*$[")
+PLACEHOLDER_MARKS = tuple("<{*$[…")
 
 
 def sections(text: str) -> dict[str, str]:
@@ -76,12 +79,17 @@ def kb(size_in_bytes: int) -> str:
 
 
 def bytes_outside_done(text: str) -> int:
-    return size(text) - size(sections(text).get("## Done", ""))
+    return size(text) - size(done_of(text))
 
 
-def in_two_files(notes_text: str) -> bool:
-    """The notes file has no Done section, so Later and Done live in the second file."""
-    return "## Done" not in sections(notes_text)
+def done_of(text: str) -> str:
+    return "\n".join(body for heading, body in sections(text).items() if notes_files.DONE_HEADING.match(heading))
+
+
+def in_two_files(notes_text: str, second_file_exists: bool) -> bool:
+    """The notes file has no Done section and the second file exists, so Later and Done live there."""
+    has_done = any(notes_files.DONE_HEADING.match(heading) for heading in sections(notes_text))
+    return second_file_exists and not has_done
 
 
 def limits(two_files: bool, config: dict = CONFIG) -> tuple[int, int]:
@@ -156,7 +164,7 @@ class Notes:
         self.files = files
         self.text = files.notes.read_text() if notes_text is None else notes_text
         self.later_text = files.later_text() if later_text is None else later_text
-        self.two_files = in_two_files(self.text)
+        self.two_files = in_two_files(self.text, files.later.is_file())
         self.read_at_start_limit, self.done_limit = limits(self.two_files)
 
     @property
@@ -172,7 +180,7 @@ class Notes:
         return size(self.text) if self.two_files else bytes_outside_done(self.text)
 
     def done(self) -> str:
-        return sections(self.later_text if self.two_files else self.text).get("## Done", "")
+        return done_of(self.later_text if self.two_files else self.text)
 
     def later(self) -> str:
         return sections(self.later_text).get("## Later", "") if self.two_files else ""
@@ -229,53 +237,60 @@ class Notes:
                 f"{stray.name} holds that {notes.name} lacks into {notes.name}, then delete {stray.name}.")
 
     def dead_links(self) -> list[tuple[str, str]]:
-        """Each local path outside Done that no longer exists, with the file and section it is in, once
-        each. Paths in code blocks, and ones followed by a placeholder such as <name>, are skipped. A relative
-        Markdown link is read from the folder of the file it is in."""
+        """Each local path outside Done that no longer exists, with the file and section it is in, once each."""
         found: dict[str, tuple[str, str]] = {}
         texts = [(self.files.notes, self.text)] + ([(self.files.later, self.later_text)] if self.later_text else [])
         for path, text in texts:
             for heading, body in sections(text).items():
-                if heading == "## Done":
+                if notes_files.DONE_HEADING.match(heading):
                     continue
-                for written in local_paths(body):
-                    target = os.path.expanduser(written) if written.startswith(("~", "/")) else str(path.parent / written)
-                    if written not in found and not os.path.exists(target):
+                for written, after in local_paths(body):
+                    if written not in found and could_be_here(written) and not exists_with_words_after(written, after):
                         found[written] = (path.name, heading or "the top")
-        missing_later = self.two_files and not self.files.later.is_file()
-        if missing_later and str(self.files.later) not in found:
-            found[str(self.files.later)] = (self.files.notes.name, "its second file, which the notes file needs once "
-                                            "it has no Done section")
         return [(written, f"{name}, {where}") for written, (name, where) in found.items()]
 
 
-def local_paths(text: str) -> list[str]:
-    """Local paths outside code blocks: `~/` and absolute paths of two or more parts, and Markdown link
-    targets with no URL scheme. A code span that holds only a path is read whole, so it may hold spaces."""
-    paths = []
+def local_paths(text: str) -> list[tuple[str, str]]:
+    """Each `~/` path and absolute path of two or more parts outside code blocks, with the text after it.
+    A code span that starts with a path gives the span up to its first word that starts with -, such as a
+    flag. A path followed by a placeholder such as <name> or by an ellipsis is skipped, and so is a code span
+    that holds one."""
+    found = []
 
-    def whole_span_path(match: re.Match) -> str:
-        span = match.group(1).strip()
-        is_path = (HOME_PATH.fullmatch(span.replace(" ", "_")) or ABSOLUTE_PATH.fullmatch(span.replace(" ", "_")))
-        if is_path and not any(character in span for character in TEMPLATE_AFTER_A_PATH):
-            paths.append(span)
+    def span_path(match: re.Match) -> str:
+        words = match.group(1).strip().split(" ")
+        if (HOME_PATH.fullmatch(words[0]) or ABSOLUTE_PATH.fullmatch(words[0])) and not any(
+                character in match.group(1) for character in PLACEHOLDER_MARKS):
+            found.append((" ".join(itertools.takewhile(lambda word: not word.startswith("-"), words)), ""))
             return " "
         return match.group(0)
 
-    plain = CODE_SPAN.sub(whole_span_path, "\n".join(without_code_blocks(text)))
-    for match in MARKDOWN_LINK.finditer(plain):
-        target = match.group(1).split("#", 1)[0]
-        if target and not URL_SCHEME.match(target):
-            paths.append(target)
+    plain = CODE_SPAN.sub(span_path, "\n".join(without_code_blocks(text)))
     for pattern in (HOME_PATH, ABSOLUTE_PATH):
         for match in pattern.finditer(plain):
-            next_character = plain[match.end():match.end() + 1]
-            if next_character and next_character in TEMPLATE_AFTER_A_PATH:
+            after = plain[match.end():match.end() + CHARACTERS_TRIED_AFTER_A_PATH]
+            if after[:1] and after[:1] in PLACEHOLDER_MARKS:
                 continue
             path = match.group(0).rstrip(".,;:")
             if path.rstrip("/") not in ("~", ""):
-                paths.append(path)
-    return list(dict.fromkeys(paths))
+                found.append((path, after))
+    return found
+
+
+def could_be_here(written: str) -> bool:
+    """A `~/` path, or an absolute path whose top folder exists on this machine. A route such as /sync/v2
+    or a path inside a repo such as /src/app.ts starts with a folder the machine does not have."""
+    if written.startswith("~"):
+        return True
+    return os.path.isdir("/" + written.split("/")[1]) and not written.startswith(ROOTS_THAT_HOLD_NO_NOTES)
+
+
+def exists_with_words_after(written: str, after: str) -> bool:
+    """The path, cut after any of its words or after some of the words that follow it, names a file. A
+    name can hold spaces, and a line can break inside one."""
+    words = written.split(" ") + after.split()[:WORDS_TRIED_AFTER_A_PATH]
+    candidates = [" ".join(words[:count]).rstrip(".,;:)`'\"") for count in range(1, len(words) + 1)]
+    return any(os.path.exists(os.path.expanduser(candidate)) for candidate in candidates)
 
 
 def without_code_blocks(text: str) -> list[str]:

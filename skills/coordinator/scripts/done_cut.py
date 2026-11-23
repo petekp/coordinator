@@ -5,7 +5,7 @@ from __future__ import annotations
 import datetime as dt
 import re
 
-import fleet
+import notes_files
 
 A_DATE_NEAR_THE_START = re.compile(r"(?<![\d#-])(?:(\d{4})-)?(\d{1,2})-(\d{1,2})(?![\d-])")
 CHARACTERS_SEARCHED_FOR_A_DATE = 120
@@ -22,8 +22,12 @@ def done_cut_to_half(text: str, today: dt.date, limit: int, held: set[str] | Non
     near its start takes the date of the nearest dated line above it.
     """
     tomorrow = today + dt.timedelta(days=1)
-    done = fleet.section_text(text, "## Done")
-    lines = done.split("\n")
+    every_line = text.split("\n")
+    span = notes_files.section_span(every_line, notes_files.DONE_HEADING.match)
+    if span is None:
+        return text, [], 0, 0
+    lines = every_line[span[0]:span[1]]
+    done = "\n".join(lines)
     starts = [i for i, line in enumerate(lines) if line.startswith("- ")]
     items = []
     for position, start in enumerate(starts):
@@ -58,5 +62,7 @@ def done_cut_to_half(text: str, today: dt.date, limit: int, held: set[str] | Non
     if not deleted:
         return text, [], kept_uncommitted, size
     gone = set(deleted)
-    kept = "\n".join(line for i, line in enumerate(lines) if i not in gone).rstrip("\n") + "\n"
-    return text.replace(done, kept, 1), [lines[i] for i in sorted(deleted)], kept_uncommitted, size
+    kept = "\n".join(line for i, line in enumerate(lines) if i not in gone).rstrip("\n")
+    after = every_line[span[1]:]
+    rebuilt = every_line[:span[0]] + [kept, ""] + after
+    return "\n".join(rebuilt), [lines[i] for i in sorted(deleted)], kept_uncommitted, size

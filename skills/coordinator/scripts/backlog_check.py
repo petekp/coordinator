@@ -3,7 +3,7 @@
 Check a domain's notes: their size, and what a trim must not lose.
 
   backlog_check.py <domain>
-  backlog_check.py <domain> --before <file> [<later file>] [--ledger <file>]
+  backlog_check.py <domain> --before <file> [--before <later file>] [--ledger <file>]
   backlog_check.py <domain> --since <commit> [--ledger <file>]
   backlog_check.py <domain> --cut-done
 
@@ -43,9 +43,11 @@ A CHECK line is something to put back unless it is finished or answered:
   - a repo the backlog no longer links or names
 
 Every form also prints a CHECK line for each local path outside Done that
-no longer exists, for a notes file with no Done section whose second file
-is missing, and for a second file that the scripts do not read because the
-notes file still has its own Done section.
+no longer exists, and for a second file that the scripts do not read
+because the notes file still has its own Done section. A local path starts
+with ~/ or with a folder this machine has at its root, other than /dev.
+One followed by more words on its line counts as there when adding some of
+them names a file, since a name can hold spaces.
 
 --cut-done deletes the oldest lines of Done until Done is at most half its
 limit. When Git tracks the file that holds Done, it deletes only lines the
@@ -189,7 +191,7 @@ def compared_with(herd: fleet.Fleet, domain: str, before: str, after: str, ledge
         if entry not in standing_yes_after and not ended_in_the_users_words(entry, ledger_entries, patterns):
             lost.append(f"Standing yes entry: {entry[:120]}")
 
-    outside_done_before = before.replace(fleet.section_text(before, "## Done"), "")
+    outside_done_before = before.replace(notes_files.done_text(before), "")
     open_after = fleet.section_text(after, "## Open")
 
     def dropped_from_open(session: str) -> bool:
@@ -286,8 +288,8 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("domain")
     earlier = parser.add_mutually_exclusive_group()
-    earlier.add_argument("--before", metavar="FILE", nargs="+",
-                         help="a copy of the notes file saved before the trim, then of the second file when there was one")
+    earlier.add_argument("--before", metavar="FILE", action="append",
+                         help="a copy of the notes file saved before the trim; given again, of the second file")
     earlier.add_argument("--since", metavar="COMMIT", help="the commit made just before the trim")
     parser.add_argument("--ledger", metavar="FILE", help="the trim's record of what it dropped on purpose")
     parser.add_argument("--cut-done", action="store_true", help="delete the oldest lines of Done until it is at most half its limit")

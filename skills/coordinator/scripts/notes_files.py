@@ -20,6 +20,8 @@ NOTES_SUFFIX = "-notes.md"
 OLDER_NOTES_SUFFIX = "-backlog.md"
 LATER_SUFFIX = "-later.md"
 SECTION_HEADING = re.compile(r"^## (?!#)")
+DONE_HEADING = re.compile(r"^## Done(?![\w-])")
+FENCE = re.compile(r"^\s*(?:```|~~~)")
 
 
 def sections_named(text: str, heading: str) -> str:
@@ -61,26 +63,42 @@ class DomainFiles(NamedTuple):
         return joined(self.notes.read_text(), self.later_text())
 
 
+def has_domain_shape(path: Path) -> bool:
+    """The file has an ## Open section outside code fences, as every domain's notes do."""
+    try:
+        lines = path.read_text().splitlines() if path.is_file() else []
+    except (OSError, UnicodeDecodeError):
+        return False
+    return section_span(lines, lambda heading: heading == "## Open") is not None
+
+
 def domain_files(domain: str, folder: Path = NOTES_DIR) -> DomainFiles:
-    """<domain>-notes.md, else <domain>-backlog.md, and <domain>-later.md beside it. A link at one name to
-    the other is the same file, not a stray."""
-    notes = folder / f"{domain}{NOTES_SUFFIX}"
+    """<domain>-notes.md, else <domain>-backlog.md, and <domain>-later.md beside it. A file under the new
+    name that is not a domain's notes, such as release-notes.md, gives way to one under the older name
+    that is. A link at one name to the other is the same file, not a stray."""
+    newer = folder / f"{domain}{NOTES_SUFFIX}"
     older = folder / f"{domain}{OLDER_NOTES_SUFFIX}"
-    stray = None
-    if notes.is_file():
-        if older.is_file() and not os.path.samefile(notes, older):
-            stray = older
-    else:
-        notes = older
-    return DomainFiles(domain, notes, folder / f"{domain}{LATER_SUFFIX}", stray)
+    older_is_notes = has_domain_shape(older)
+    use_newer = newer.is_file() and (has_domain_shape(newer) or not older_is_notes)
+    stray = older if use_newer and older_is_notes and not os.path.samefile(newer, older) else None
+    return DomainFiles(domain, newer if use_newer else older, folder / f"{domain}{LATER_SUFFIX}", stray)
 
 
 def domains_in(folder: Path = NOTES_DIR) -> list[str]:
-    """Each domain with a notes file under either name, once."""
+    """Each domain with a notes file under either name, once. A file with no ## Open section is not one."""
     found = set()
     for suffix in (NOTES_SUFFIX, OLDER_NOTES_SUFFIX):
-        found |= {path.name[:-len(suffix)] for path in folder.glob(f"*{suffix}") if path.is_file()}
+        found |= {path.name[:-len(suffix)] for path in folder.glob(f"*{suffix}") if has_domain_shape(path)}
     return sorted(found)
+
+
+def why_not_a_domain(domain: str, folder: Path = NOTES_DIR) -> CheckError:
+    """Why the domain has no notes: its file has no ## Open section, or it has no file."""
+    try:
+        open_section(domain_files(domain, folder).notes)
+    except CheckError as error:
+        return error
+    return CheckError(f"no backlog for {domain} in {folder}")
 
 
 def open_section(backlog: Path) -> str:
@@ -104,17 +122,34 @@ def open_section(backlog: Path) -> str:
     return "\n".join(body)
 
 
+def section_span(lines: list[str], wanted) -> tuple[int, int] | None:
+    """Where the body of the first section whose heading line passes wanted starts and ends in lines.
+    A heading inside a code fence is text, not a heading."""
+    start = None
+    in_fence = False
+    for number, line in enumerate(lines):
+        if FENCE.match(line):
+            in_fence = not in_fence
+        if in_fence or not SECTION_HEADING.match(line):
+            continue
+        if start is not None:
+            return start, number
+        if wanted(line.rstrip()):
+            start = number + 1
+    return (start, len(lines)) if start is not None else None
+
+
 def section_text(text: str, heading: str) -> str:
-    body: list[str] | None = None
-    for line in text.splitlines():
-        if body is None:
-            if line.rstrip() == heading:
-                body = []
-        elif SECTION_HEADING.match(line):
-            break
-        else:
-            body.append(line)
-    return "\n".join(body or [])
+    lines = text.splitlines()
+    span = section_span(lines, lambda line: line == heading)
+    return "\n".join(lines[span[0]:span[1]]) if span else ""
+
+
+def done_text(text: str) -> str:
+    """The Done section, whose heading may carry more words, as in "## Done (newest first)"."""
+    lines = text.splitlines()
+    span = section_span(lines, DONE_HEADING.match)
+    return "\n".join(lines[span[0]:span[1]]) if span else ""
 
 
 def open_and_later(files: DomainFiles) -> str:

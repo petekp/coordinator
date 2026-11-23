@@ -35,7 +35,7 @@ import uuid
 from pathlib import Path
 from check_error import CheckError
 from config import CONFIG, CONFIG_FILE
-from notes_files import NOTES_DIR, DomainFiles, domain_files, domains_in, open_and_later, section_text
+from notes_files import NOTES_DIR, DomainFiles, domain_files, domains_in, open_and_later, section_text, why_not_a_domain
 
 HOME = Path.home()
 BACKLOG_DIR = NOTES_DIR
@@ -272,7 +272,7 @@ class Fleet:
 
     def backlog(self, domain: str) -> Path:
         if domain not in self.backlogs:
-            raise CheckError(f"no backlog for {domain} in {BACKLOG_DIR}")
+            raise why_not_a_domain(domain)
         return self.backlogs[domain]
 
     def files(self, domain: str) -> DomainFiles:
