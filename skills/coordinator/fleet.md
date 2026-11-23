@@ -121,8 +121,9 @@ the tab and do not send again.
   SKILL.md says what to do with one.
 
   Handle every line, then arm it again with the same command. A line that
-  starts `rule ·` is a standing rule with its command: follow it. Ignore
-  `alive` and `stopped`. `owner gone`, `parent gone` and `blind` mean it
+  starts `rule ·` is a standing rule with its command: follow it. One
+  says `--resume` hides Later items; it prints at most once every 7 days.
+  Ignore `alive` and `stopped`. `owner gone`, `parent gone` and `blind` mean it
   lost sight of your terminal, its shell, herdr-core, your backlog or
   GitHub: arm it again, and tell the user when `blind` repeats.
   `no agent <name>` means no live agent has that name: correct the name, or

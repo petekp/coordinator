@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import subprocess
 import tempfile
 import time
@@ -231,6 +232,41 @@ class TestRuleLinesAndDueDates(unittest.TestCase):
         lines = self.rule_lines()
         self.assertEqual(len(lines), 1)
         self.assertRegex(lines[0], r'^rule · in your notes, the notes file is 21\.\d KB, limit 20 · Its largest Open items: "Big\. y+…" 21\.\d KB; "Small\." ')
+
+    def test_later_items_that_resume_hides_get_one_rule_line_a_week_with_the_count_resume_gives(self):
+        later = "".join(f"- **Parked {i:02d}** " + "w" * 140 + "\n" for i in range(30))
+        self.sb.write_notes("demo", "# demo\n\n## Open\n", f"## Later\n\n{later}\n## Done\n")
+        res = self.sb.run_python(
+            "import json, fleet_watch, resume\n"
+            "seen = {}\n"
+            "first = fleet_watch.rule_lines('demo', seen)\n"
+            "again = fleet_watch.rule_lines('demo', seen)\n"
+            "seen['demo'] -= 7 * 24 * 3600\n"
+            "later = fleet_watch.rule_lines('demo', seen)\n"
+            "print(json.dumps([first, again, later, resume.resume_text('demo', 'status')]))")
+        self.assertEqual(res.returncode, 0, res.stderr)
+        first, again, later, resumed = json.loads(res.stdout)
+        hidden = re.search(r"The (\d+) oldest of its 30 items are not shown here", resumed)
+        self.assertIsNotNone(hidden, resumed)
+        self.assertEqual(len(first), 1)
+        self.assertRegex(first[0], rf"^rule · in your notes, --resume hides the oldest {hidden.group(1)} of 30 Later items · ")
+        self.assertEqual(again, [])
+        self.assertEqual(len(later), 1)
+
+    def test_no_later_rule_line_when_nothing_is_hidden_or_the_notes_are_in_one_piece(self):
+        self.sb.write_notes("demo", "# demo\n\n## Open\n", "## Later\n\n- One.\n- Two.\n\n## Done\n")
+        self.assertEqual(self.rule_lines(), [])
+        later = "".join(f"- **Parked {i:02d}** " + "w" * 140 + "\n" for i in range(30))
+        (self.sb.backlog_dir / "demo-notes.md").write_text("# demo\n\n## Open\n\n## Done\n")
+        (self.sb.backlog_dir / "demo-later.md").write_text(f"## Later\n\n{later}\n")
+        self.assertEqual(self.rule_lines(), [])
+
+    def test_a_large_later_gets_no_size_rule(self):
+        later = "".join(f"- **Parked {i:03d}** " + "w" * 400 + "\n" for i in range(120))
+        self.sb.write_notes("demo", "# demo\n\n## Open\n", f"## Later\n\n{later}\n## Done\n")
+        lines = self.rule_lines()
+        self.assertEqual(len(lines), 1)
+        self.assertNotIn("limit", lines[0])
 
     def test_a_separate_file_under_the_older_name_gets_a_rule_line(self):
         self.sb.write_notes("demo", "# demo\n\n## Open\n", "## Later\n\n## Done\n")

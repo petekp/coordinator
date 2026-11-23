@@ -9,7 +9,8 @@ compaction, so that part has a limit, 40 KB, and Done has its own, 20 KB.
 A notes file in two files has no Done section, and its Later and Done
 sections are in <domain>-later.md beside it, which the coordinator searches and does
 not read whole. The coordinator reads the notes file whole, so the whole
-file has the limit, 20 KB. Done's limit is 100 KB and Later's is 40 KB.
+file has the limit, 20 KB. Done's limit is 100 KB. Later has no size limit:
+the watcher asks for a review of the items that --resume hides.
 A notes file with a Done section is in one piece even when a second file
 exists, and so is one with neither, such as a new domain's. A Done heading
 may carry more words, as in "## Done (newest first)".
@@ -35,7 +36,7 @@ from fleet import CONFIG
 BYTES_PER_KB = 1000
 ONE_PIECE_LIMITS_KB = (40, 20)
 TWO_FILE_LIMITS_KB = (20, 100)
-LIMIT_OF_LATER = 40 * BYTES_PER_KB
+LATER_LINES_CHARS = 3000
 TRIMMED_BY_A_DELEGATE_OVER = CONFIG["trim_by_delegate_over_kb"] * BYTES_PER_KB
 TRIM_STEPS = Path(fleet.SCRIPTS).parent / "backlog-trim.md"
 TITLE_CHARS = 160
@@ -188,6 +189,18 @@ class Notes:
     def later_items(self) -> list[Item]:
         return items(self.later(), line_of_heading(self.later_text, "## Later") + 1)
 
+    def later_hidden_and_shown(self) -> tuple[list[Item], list[Item]]:
+        """The Later items that --resume leaves out, oldest first, and those it prints, up to LATER_LINES_CHARS."""
+        every = self.later_items()
+        shown: list[Item] = []
+        chars = 0
+        for item in reversed(every):
+            chars += len(f"- {item.title}") + 1
+            if chars > LATER_LINES_CHARS:
+                break
+            shown.insert(0, item)
+        return every[:len(every) - len(shown)], shown
+
     def largest_open_items(self) -> list[Item]:
         found = items(sections(self.text).get("## Open", ""))
         return sorted(found, key=lambda item: -size(item.text))[:LARGEST_OPEN_ITEMS_NAMED]
@@ -203,10 +216,6 @@ class Notes:
         done = size(self.done())
         if done > self.done_limit:
             over.append((f"Done is {kb(done)}, limit {self.done_limit // BYTES_PER_KB}", self.what_to_do_when_done_is_over()))
-        later = size(self.later())
-        if later > LIMIT_OF_LATER:
-            over.append((f"Later is {kb(later)}, limit {LIMIT_OF_LATER // BYTES_PER_KB}",
-                         "Bring the user the oldest Later items as one question: keep or drop each."))
         return over
 
     def what_to_do_when_read_at_start_is_over(self) -> str:

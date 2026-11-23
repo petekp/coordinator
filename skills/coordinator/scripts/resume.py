@@ -9,7 +9,7 @@ only the sections' sizes when the text outside Done is over its limit.
 For a notes file whose Later and Done are in a second file it prints the
 whole notes file, with an OVER line first when a part is over its limit.
 Then it prints the first line of each Later item, newest last, up to
-LATER_LINES_CHARS characters in all, and says how many older items it
+backlog.LATER_LINES_CHARS characters in all, and says how many older items it
 leaves out and on which lines they start. Then it prints each Later item
 that holds an Ask:, and how many local paths in the two files no longer
 exist. Its first line warns when the whole output passes CUT_AT_CHARS.
@@ -24,7 +24,6 @@ import fleet
 from watch_lock import watcher_running
 
 SECTIONS_READ_AGAIN = ("## Boundary", "## Standing yes", "## Open")
-LATER_LINES_CHARS = 3000
 CUT_AT_CHARS = 30_000
 
 
@@ -56,23 +55,15 @@ def one_piece(notes: backlog.Notes) -> str:
 
 def later_lines(notes: backlog.Notes) -> str:
     later = notes.files.later
-    every = notes.later_items()
+    hidden, shown = notes.later_hidden_and_shown()
+    every = len(hidden) + len(shown)
     if not every:
         return f"Later, in {later}: no items."
-    shown: list[str] = []
-    chars = 0
-    for item in reversed(every):
-        line = f"- {item.title}"
-        if chars + len(line) + 1 > LATER_LINES_CHARS:
-            break
-        shown.insert(0, line)
-        chars += len(line) + 1
-    hidden = every[:len(every) - len(shown)]
     out = [f"Later, in {later}: the first line of each item, newest last."]
     if hidden:
-        out.append(f"The {len(hidden)} oldest of its {len(every)} items are not shown here. They start on lines "
+        out.append(f"The {len(hidden)} oldest of its {every} items are not shown here. They start on lines "
                    f"{hidden[0].line} to {hidden[-1].line}. Search that file for them.")
-    return "\n".join(out + shown)
+    return "\n".join(out + [f"- {item.title}" for item in shown])
 
 
 def later_asks(notes: backlog.Notes) -> str:

@@ -100,8 +100,9 @@ They never end the watch on their own:
                                  command to give it the work.
   rule · <text>                  a standing rule and its command: delegates
                                  quiet for over a day, notes over a size
-                                 limit or with a stray copy, and an update to
-                                 these skills, checked at most daily. Follow
+                                 limit or with a stray copy, Later items that
+                                 --resume hides (at most weekly), and an update
+                                 to these skills, checked at most daily. Follow
                                  each.
 
 A delegate ended with delegate_end.py prints no `gone` and no `no agent`.
@@ -109,8 +110,8 @@ A delegate ended with delegate_end.py prints no `gone` and no `no agent`.
 `alive` is printed every 10 minutes while nothing fires, so Claude Code
 sees output and sends no quiet-task check-in. It needs nothing.
 
-The state file keeps the last snapshot, held events and the last exit time,
-so a change made while the watch was not running fires once it is armed
+The state file keeps the last snapshot, held events, the last exit time and
+when the Later review line last printed, so a change made while the watch was not running fires once it is armed
 again. The first run with a new state file records a snapshot and waits,
 apart from `due` lines, which print once whenever their date has come.
 A delegate that comes back after `gone` starts a new snapshot. It also
@@ -152,7 +153,6 @@ STATE_SOURCE = "hc"
 RULE_SECONDS = 20
 
 sys.path.insert(0, os.path.dirname(os.path.realpath(__file__)))
-import backlog  # noqa: E402
 import fleet  # noqa: E402
 import notes_files  # noqa: E402
 from due_steps import due_lines  # noqa: E402
@@ -168,6 +168,7 @@ from watch_domain import (adopt_earlier_pr, copy_to_same_pr, copy_to_same_termin
                           watched_agent_names, watched_pr_specs, written_before_domain)
 from watch_lock import take_state_lock  # noqa: E402
 from watch_prs import ended_lines, pr_events, pr_snapshot  # noqa: E402
+from watch_rules import rule_lines  # noqa: E402
 
 
 def live_agents(cache=None):
@@ -182,28 +183,7 @@ class RulesTimeout(BaseException):
     pass
 
 
-def rule_lines(domain):
-    """Standing rules for the domain's coordinator, each with its command."""
-    herd = fleet.Fleet()
-    if domain not in herd.backlogs:
-        return []
-    lines = [f"rule · {rule}" for rule in backlog.Notes(herd.files(domain)).standing_rules()]
-    now = fleet.dt.datetime.now(fleet.dt.timezone.utc)
-    quiet = 0
-    for member in herd.members_of(domain) if domain not in fleet.DOMAINS_KEPT_RUNNING else []:
-        agent = member["agent"]
-        if agent["status"] in ("working", "blocked"):
-            continue
-        responded = fleet.last_response(fleet.session_of(agent), now)
-        if responded and now - responded >= fleet.IDLE_BEFORE_ENDING:
-            quiet += 1
-    if quiet:
-        lines.append(f"rule · {quiet} of your delegates quiet for over a day · list them with "
-                     f"{fleet.SCRIPTS}/delegate_end.py --list-idle and end each one")
-    return lines
-
-
-def print_rules(agents, owner, stop_waiting):
+def print_rules(agents, owner, stop_waiting, later_reviewed):
     """New lines may fail; the events above them are already printed and saved.
 
     A newer watcher's SIGTERM in this window ends the process without
@@ -218,7 +198,7 @@ def print_rules(agents, owner, stop_waiting):
             return
         signal.signal(signal.SIGALRM, give_up)
         signal.alarm(RULE_SECONDS)
-        for line in rule_lines(owning_agent["domain"]):
+        for line in rule_lines(owning_agent["domain"], later_reviewed):
             print(line, flush=True)
     except BaseException as error:
         if isinstance(error, (KeyboardInterrupt, SystemExit)):
@@ -340,6 +320,7 @@ def main():
             adopt_earlier_pr(prs_seen, spec)
     due_fired = saved.get("due_fired") if isinstance(saved.get("due_fired"), list) else []
     issues_seen = saved.get("issues") if isinstance(saved.get("issues"), dict) else {}
+    later_reviewed = saved.get("later_reviewed") if isinstance(saved.get("later_reviewed"), dict) else {}
     last_agents = None
     owner_session = os.environ.get("CLAUDE_CODE_SESSION_ID")
     started_at = time.time()
@@ -368,7 +349,7 @@ def main():
         state_saver.save({"source": STATE_SOURCE, "agents": agents_seen, "prs": prs_seen, "pending": pending,
                           "last_wake_at": last_wake_at, "clock": clock.reading(),
                           "watched_agents": watched_names(), "watched_prs": watched_specs(),
-                          "due_fired": due_fired, "issues": issues_seen,
+                          "due_fired": due_fired, "issues": issues_seen, "later_reviewed": later_reviewed,
                           "github_failing_since": github_failing_since}, force=force)
 
     def end(line):
@@ -484,7 +465,8 @@ def main():
             except Exception:
                 pass
             if args.owner:
-                print_rules(agents, args.owner, stop_waiting)
+                print_rules(agents, args.owner, stop_waiting, later_reviewed)
+                save_state([], force=True)
             return 0
         if now >= next_alive_at:
             print("alive", flush=True)
