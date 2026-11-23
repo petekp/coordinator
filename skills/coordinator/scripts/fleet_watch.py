@@ -445,12 +445,11 @@ def main():
             if args.domain and last_agents is not None:
                 try:
                     issue_repos, backlog_text, inbox_text = domain_issue_sources(args.domain, last_agents)
-                    lines, issues_now, issues_failed = issue_lines(issue_repos, issues_seen, time.time(),
-                                                                   open_issues_since, backlog_text, inbox_text)
                 except Exception:
                     issue_repos = []
                 else:
-                    issues_seen = issues_now
+                    lines, issues_seen, issues_failed = issue_lines(issue_repos, issues_seen, time.time(),
+                                                                    open_issues_since, backlog_text, inbox_text)
                     events += lines
                     failed = {**issues_failed, **failed}
             events += pr_events(prs_seen, now_prs)

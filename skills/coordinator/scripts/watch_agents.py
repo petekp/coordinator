@@ -16,7 +16,7 @@ REPORT_HEADINGS = (("questions for the user", "question", "questions"), ("issues
                    ("findings", "finding", "findings"))
 MARKDOWN_HEADING = re.compile(r"^#{1,6}\s+(.*?)[\s#]*$")
 TOP_LEVEL_LIST_ENTRY = re.compile(r"^(?:[-*+]|\d+[.)])\s+(.*)")
-NO_ENTRY = {"none", "nothing", "n/a"}
+NO_ENTRY_WORDS = {"none", "nothing", "n/a"}
 
 
 def ended_delegates():
@@ -78,7 +78,8 @@ def report_counts(path):
                 counts.setdefault(current, 0)
             continue
         entry = current and not in_fence and TOP_LEVEL_LIST_ENTRY.match(line)
-        if entry and entry.group(1).strip().rstrip(".").lower() not in NO_ENTRY:
+        first_word = entry and (entry.group(1).split() or [""])[0].rstrip(".,:;!").lower()
+        if entry and first_word not in NO_ENTRY_WORDS:
             counts[current] += 1
     if not counts:
         return None

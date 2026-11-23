@@ -29,6 +29,10 @@ ISSUES_QUERY = """query($owner: String!, $name: String!, $cursor: String) {
       pageInfo { hasNextPage endCursor } nodes { number title url createdAt } } } }"""
 
 
+class IssueReadFailed(Exception):
+    pass
+
+
 def epoch(stamp):
     return dt.datetime.fromisoformat(stamp.replace("Z", "+00:00")).timestamp()
 
@@ -57,8 +61,8 @@ def open_issues_since(slug, cutoff):
 
 
 def names_issue(text, slug, number, needs_link):
-    """A link to the issue, owner/name#<number>, or a bare #<number> when the domain watches one repo."""
-    if re.search(rf"{re.escape(slug)}(?:/issues/|#){number}(?!\d)", text):
+    """A link to the issue, owner/name#<number> in any case, or a bare #<number> when the domain watches one repo."""
+    if re.search(rf"{re.escape(slug)}(?:/issues/|#){number}(?!\d)", text, re.IGNORECASE):
         return True
     return not needs_link and bool(re.search(rf"(?<![\w/])#{number}(?!\d)", text))
 
@@ -75,21 +79,27 @@ def issue_lines(slugs, seen, now, fetch, backlog_text, inbox_text):
         if not isinstance(record, dict) or not isinstance(record.get("read_at"), (int, float)):
             records[slug] = {"read_at": now, "numbers": {}}
             continue
-        issues, failure = fetch(slug, record["read_at"] - OVERLAP_SECONDS)
-        if issues is None:
-            failed[slug] = failure
-            records[slug] = record
+        cutoff = record["read_at"] - OVERLAP_SECONDS
+        try:
+            issues, failure = fetch(slug, cutoff)
+            if issues is None:
+                raise IssueReadFailed(failure)
+            numbers = {key: created for key, created in (record.get("numbers") or {}).items() if created >= cutoff}
+            new_lines = []
+            for issue in sorted(issues, key=lambda node: node["number"]):
+                key, created = str(issue["number"]), epoch(issue["createdAt"])
+                if key in numbers or now - created < ISSUE_GRACE_SECONDS:
+                    continue
+                numbers[key] = created
+                if not any(names_issue(text, slug, issue["number"], needs_link) for text in (backlog_text, inbox_text)):
+                    new_lines.append(f"issue {issue['number']} · {issue['title']} · {issue['url']}")
+        except IssueReadFailed as error:
+            failed[slug], records[slug] = str(error), record
             continue
-        numbers = {key: created for key, created in (record.get("numbers") or {}).items()
-                   if created >= now - OVERLAP_SECONDS}
-        for issue in sorted(issues, key=lambda node: node["number"]):
-            key, created = str(issue["number"]), epoch(issue["createdAt"])
-            if key in numbers or now - created < ISSUE_GRACE_SECONDS:
-                continue
-            numbers[key] = created
-            if any(names_issue(text, slug, issue["number"], needs_link) for text in (backlog_text, inbox_text)):
-                continue
-            lines.append(f"issue {issue['number']} · {issue['title']} · {issue['url']}")
+        except Exception as error:
+            failed[slug], records[slug] = f"issue read failed: {type(error).__name__}: {error}"[:300], record
+            continue
+        lines += new_lines
         records[slug] = {"read_at": now, "numbers": numbers}
     return lines, records, failed
 

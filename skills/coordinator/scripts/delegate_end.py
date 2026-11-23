@@ -74,8 +74,7 @@ def list_idle(herd: fleet.Fleet, domain: str, now: dt.datetime) -> int:
         return 0
     print(f"Quiet for a day or more: {len(rows)} of your delegates. End each with:")
     for since, name, task, items in sorted(rows):
-        relay = (f"   relay its {items} inbox item{'s' if items > 1 else ''}, questions, tasks or findings, "
-                 "first, then add --relayed") if items else ""
+        relay = f"   its inbox holds {items} item{'s' if items > 1 else ''}: relay them first, then add --relayed" if items else ""
         print(f"  {THIS_SCRIPT} {name}   # [{task}] quiet {age(since, now)}{relay}")
     print("Each keeps its worktree, branch and backlog line. Resume one with --resume <agent> "
           "when a review, an answer or a check result arrives for it.")

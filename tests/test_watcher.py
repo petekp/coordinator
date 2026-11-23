@@ -79,7 +79,7 @@ class TestWatcherEvents(unittest.TestCase):
             report.write_text(
                 "- status: done\n- what changed: x\n\n"
                 "## Questions for the user\n\n- Ship it?\n  - nested detail\n1. Rename it?\n\n"
-                "### Issues filed:\n\n- None\n\n"
+                "### Issues filed:\n\n- None\n- None filed so far.\n- Nothing.\n\n"
                 "## Findings\n\n- Clock skew\n```\n- not an entry\n```\n\n## Notes\n\n- not counted\n"
             )
             self.assertEqual(watch_agents.report_counts(str(report)), "2 questions, 0 issues, 1 finding")
@@ -140,7 +140,7 @@ class TestIssueLines(unittest.TestCase):
             asked.append(cutoff)
             return [i for i in issues if watch_issues.epoch(i["createdAt"]) >= cutoff], None
 
-        backlog = "- Fix: org/app#12 is being fixed by d1.\n"
+        backlog = "- Fix: Org/App#12 is being fixed by d1.\n"
         inbox = '[{"ask": "Fix #13 now or later?", "context": "https://github.com/org/app/issues/13"}]'
         lines, seen, failed = watch_issues.issue_lines({"org/app"}, seen, now + 90, fetch, backlog, inbox)
         self.assertEqual(lines, ["issue 11 · Crash on save · https://github.com/org/app/issues/11"])
@@ -149,6 +149,10 @@ class TestIssueLines(unittest.TestCase):
         lines, seen, _ = watch_issues.issue_lines({"org/app"}, seen, now + 400, fetch, backlog, inbox)
         self.assertEqual(lines, ["issue 14 · Too new · https://github.com/org/app/issues/14"])
         lines, seen, _ = watch_issues.issue_lines({"org/app"}, seen, now + 490, fetch, backlog, inbox)
+        self.assertEqual(lines, [])
+        lines, seen, _ = watch_issues.issue_lines({"org/app"}, seen, now + 1000, fetch, backlog, inbox)
+        self.assertEqual(lines, [])
+        lines, seen, _ = watch_issues.issue_lines({"org/app"}, seen, now + 2500, fetch, backlog, inbox)
         self.assertEqual(lines, [])
 
     def test_bare_number_names_an_issue_only_when_one_repo_is_watched(self):
@@ -168,6 +172,13 @@ class TestIssueLines(unittest.TestCase):
         lines, seen, failed = watch_issues.issue_lines({"org/app"}, record, 200.0,
                                                        lambda slug, cutoff: (None, "gh exit 1: boom"), "", "")
         self.assertEqual((lines, seen, failed), ([], record, {"org/app": "gh exit 1: boom"}))
+
+        def unexpected_answer(slug, cutoff):
+            return [{"number": 4, "title": "t", "url": "u", "createdAt": None}], None
+
+        lines, seen, failed = watch_issues.issue_lines({"org/app"}, record, 200.0, unexpected_answer, "", "")
+        self.assertEqual((lines, seen), ([], record))
+        self.assertIn("issue read failed", failed["org/app"])
 
 
 class TestWatcherCheckCLI(unittest.TestCase):
