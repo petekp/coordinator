@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 import json
+import os
+import subprocess
 import tempfile
 import time
 import unittest
@@ -11,6 +13,7 @@ from tests.helpers import COORD_SCRIPTS, Sandbox, add_script_paths
 
 add_script_paths()
 import due_steps  # noqa: E402
+import fleet  # noqa: E402
 import fleet_watch  # noqa: E402
 import watch_agents  # noqa: E402
 import watch_issues  # noqa: E402
@@ -124,6 +127,29 @@ def issue(number, title, created):
     stamp = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(created))
     return {"number": number, "title": title, "createdAt": stamp,
             "url": f"https://github.com/org/app/issues/{number}"}
+
+
+def checkout(root, name, url):
+    folder = root / name
+    folder.mkdir()
+    subprocess.run(["git", "init", "-q", str(folder)], check=True)
+    subprocess.run(["git", "-C", str(folder), "remote", "add", "origin", url], check=True)
+    return folder
+
+
+class TestOwnedRepos(unittest.TestCase):
+    def test_owned_repos_stop_at_the_adjacent_line_and_boundary_repos_do_not(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(os.path.realpath(folder))
+            owned = checkout(root, "app", "https://github.com/org/app.git")
+            adjacent = checkout(root, "lib", "git@github.com:org/lib.git")
+            for adjacent_line in ("Adjacent: ", "- **Adjacent (read freely):** "):
+                text = (f"# demo\n\n## Boundary\n\n- **Owns:** {owned}\n{adjacent_line}{adjacent}\n\n"
+                        f"## Open\n\n- see {adjacent}\n")
+                self.assertEqual(watch_issues.owned_repos(text, {}), {"org/app"})
+                self.assertEqual(fleet.boundary_repos(text, {}), {"org/app", "org/lib"})
+            text = f"## Boundary\n\nOwns {owned} and {adjacent}.\n"
+            self.assertEqual(watch_issues.owned_repos(text, {}), {"org/app", "org/lib"})
 
 
 class TestIssueLines(unittest.TestCase):

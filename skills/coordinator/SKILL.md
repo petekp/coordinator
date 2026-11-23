@@ -25,7 +25,10 @@ path, from the skill's base directory. Settings come from
    does not own. Ask once when either is unclear. Done when the backlog's
    Boundary section holds both and the user has seen them in two lines.
    Write each repo in Boundary by its path, such as `~/src/app`: the
-   scripts find the domain's pull requests from those paths.
+   scripts find the domain's pull requests from those paths. List the repos
+   the domain owns first, then the adjacent ones after a line that starts
+   `Adjacent`, because the watcher reads new issues only from the repos
+   listed before that line.
 2. Open the backlog, `<backlog_dir>/<domain>-backlog.md`. It is working
    memory, not a doc: plans, specs and reports go wherever the user keeps
    docs. Create it when missing, in the shape under [Backlog](#backlog).
@@ -188,7 +191,7 @@ says. `delegate_end.py` refuses to end a delegate whose inbox holds a
 finding until you pass `--relayed`.
 
 The watcher prints `issue <number> · <title> · <url>` for an open issue
-created in a repo your Boundary names, unless your backlog or an open item
+created in a repo your domain owns, unless your backlog or an open item
 in your inbox already names it. For each one, record the question "Fix #N
 now or later?" in your inbox, with the options "Fix now" and "Later", your
 recommendation and the issue's link. Issues that arrive together share one

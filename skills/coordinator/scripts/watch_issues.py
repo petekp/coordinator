@@ -1,7 +1,8 @@
 """
 How the fleet watcher finds new issues: the open issues created in each
-repo the domain's backlog names in its Boundary, read with one GraphQL query
-per repo, newest first.
+repo the domain owns, read with one GraphQL query per repo, newest first.
+The domain owns the checkouts its backlog's Boundary names before the line
+that starts "Adjacent", bold or not.
 
 Each repo's record holds when it was last read and the numbers already
 seen, so a restarted watcher reports none again. A repo read for the first
@@ -20,6 +21,7 @@ import fleet
 import inbox_state
 from watch_prs import run_json
 
+ADJACENT_LINE = re.compile(r"^\s*(?:[-*+]\s+)?(?:\*\*|__)?Adjacent\b", re.MULTILINE)
 ISSUE_GRACE_SECONDS = 300
 OVERLAP_SECONDS = 1200
 PAGES_PER_POLL = 5
@@ -104,9 +106,17 @@ def issue_lines(slugs, seen, now, fetch, backlog_text, inbox_text):
     return lines, records, failed
 
 
+def owned_repos(text, cache):
+    """Repos of the checkouts the backlog's Boundary names before its line that starts "Adjacent"."""
+    boundary = fleet.section_text(text, "## Boundary")
+    adjacent = ADJACENT_LINE.search(boundary)
+    owned = boundary[:adjacent.start()] if adjacent else boundary
+    return fleet.boundary_repos(f"## Boundary\n{owned}", cache)
+
+
 def domain_issue_sources(domain, agents, store=None):
-    """The repos the domain's Boundary names, the backlog's text, and the text of the open items in the
-    coordinator's saved inbox."""
+    """The repos the domain owns, the backlog's text, and the text of the open items in the coordinator's
+    saved inbox."""
     herd = fleet.Fleet(agents=agents)
     text = herd.backlog(domain).read_text()
     coordinator = herd.coordinator_of(domain)
@@ -118,4 +128,4 @@ def domain_issue_sources(domain, agents, store=None):
             saved = {}
         items = ((saved.get("ledger") or {}).get("items")) or []
         inbox_text = json.dumps(items, ensure_ascii=False)
-    return fleet.boundary_repos(text, herd.checkouts), text, inbox_text
+    return owned_repos(text, herd.checkouts), text, inbox_text

@@ -110,10 +110,11 @@ the tab and do not send again.
   edit after the item's first 60 characters does not print it again.
 
   With `--domain`, `issue <number> · <title> · <url>` is one of the other
-  events too. It means an open issue was created in a repo whose checkout
-  your Boundary names, and neither your backlog nor an open item in your
-  inbox names it. An issue counts as named by its link, by
-  `<owner>/<repo>#<number>`, or, when the Boundary names one repo, by a bare
+  events too. It means an open issue was created in a repo your domain owns,
+  and neither your backlog nor an open item in your inbox names it. Your
+  domain owns the checkouts your Boundary names before its line that starts
+  "Adjacent", bold or not. An issue counts as named by its link, by
+  `<owner>/<repo>#<number>`, or, when your domain owns one repo, by a bare
   `#<number>`. Each issue prints once, five minutes or more after it was
   created. The watcher reads issues every 90 seconds and remembers
   which it has seen in its state file, so a restart does not repeat them.

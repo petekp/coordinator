@@ -67,11 +67,10 @@ Other events:
                                  own first 60 characters.
   issue <number> · <title> · <url>
                                  with --domain: an open issue was created in
-                                 a repo whose checkout the backlog's Boundary
-                                 names, and neither the backlog nor an open
-                                 item in the coordinator's saved inbox names
-                                 it. watch_issues.py says how. Each issue
-                                 prints once.
+                                 a repo the domain owns, and neither the
+                                 backlog nor an open item in the coordinator's
+                                 saved inbox names it. watch_issues.py says
+                                 how. Each issue prints once.
 
 Lines that end the watch without an event:
 
