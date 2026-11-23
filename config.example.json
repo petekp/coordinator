@@ -5,7 +5,6 @@
   "delegate_claude_args": ["--autocompact", "300000"],
   "delegate_env": {},
   "inbox_store": null,
-  "notes_limit_kb": 30,
   "trim_by_delegate_over_kb": 150,
   "user_names": ["Sam"],
   "open_ask_patterns": ["waits on Sam\\b"],

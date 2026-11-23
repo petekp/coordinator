@@ -142,8 +142,8 @@ defaults. `COORDINATOR_CONFIG` can name another file.
 | `delegate_claude_args` | extra Claude Code arguments for every delegate, such as `["--autocompact", "300000"]` | none |
 | `delegate_env` | environment variables set for every delegate | `{}` |
 | `inbox_store` | the inbox's saved state, needed only when more than one exists | found on its own |
-| `notes_limit_kb` | most kilobytes the coordinator reads at each start: everything outside Done in a notes file in one piece, or the whole notes file when Later and Done are in a second file. 40 KB is about 10,000 tokens. A value you set applies to both. `backlog_limit_kb` is its older name | 40 in one piece, 20 in two files |
-| `done_limit_kb` | most kilobytes of the Done section. A value you set applies to both | 20 in one piece, 100 in two files |
+| `notes_limit_kb` | most kilobytes the coordinator reads at each start: everything outside Done in a notes file in one piece, or the whole notes file when Later and Done are in a second file. 40 KB is about 10,000 tokens. Leave it unset to give each shape its own default; a value you set applies to both. `backlog_limit_kb` is its older name | 40 in one piece, 20 in two files |
+| `done_limit_kb` | most kilobytes of the Done section. Leave it unset to give each shape its own default; a value you set applies to both | 20 in one piece, 100 in two files |
 | `trim_by_delegate_over_kb` | above this many kilobytes outside Done, about 37,000 tokens at 150, the coordinator has a delegate trim the backlog instead of reading it whole | 150 |
 | `user_names` | regular expressions for your name, so the backlog check also finds your words quoted after it, as in `Sam said "..."` | none |
 | `open_ask_patterns` | regular expressions, matched ignoring case, for other ways your backlogs mark an open ask | none |
