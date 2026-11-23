@@ -56,6 +56,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import fleet  # noqa: E402
+import inbox_state  # noqa: E402
 from fleet import CheckError, run  # noqa: E402
 
 READY = "ready for restart"
@@ -218,7 +219,7 @@ def open_inbox_panel(address: str) -> None:
     holds the panel's pane id.
     """
     try:
-        if fleet.inbox_store() is None:
+        if inbox_state.inbox_store() is None:
             return
         terminal = fleet.terminal_or_none(address) or {}
         if (terminal.get("labels") or {}).get("inbox.panel"):

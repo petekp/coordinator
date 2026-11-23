@@ -142,6 +142,30 @@ esac
         )
         self.assertIn("unrecognized arguments", start_codex.stderr)
 
+    def test_delegate_end_refuses_a_delegate_with_an_open_finding_until_relayed(self):
+        store = self.sb.root / "inbox_store.json"
+        store.write_text(json.dumps({"s:sess-d1": {"ledger": {"items": [], "findings": [
+            {"kind": "issue", "title": "Clock skips an hour", "detail": "", "id": 1, "at": 0}]}}}))
+        self.sb.config_path.write_text(json.dumps({**json.loads(self.sb.config_path.read_text()),
+                                                   "inbox_store": str(store)}))
+        coord = make_terminal("t1", None, "demo", "done", role="coordinator")
+        delegate = make_terminal("t2", "d1", "demo", "done")
+        delegate["labels"]["fleet.session"] = "sess-d1"
+        hc_script = f"""
+case "$1 $2" in
+  "ls "*) echo '{{"terminals":[{{"address":"t1","agent":"claude-code","status":{{"state":"done"}}}},{{"address":"t2","agent":"claude-code","status":{{"state":"done"}}}}]}}' ;;
+  "get t1") echo '{json.dumps(coord)}' ;;
+  "get t2") echo '{json.dumps(delegate)}' ;;
+  *) echo "unexpected hc $*" >&2; exit 9 ;;
+esac
+"""
+        self.sb.write_stub("hc", hc_script)
+        res = self.sb.run_script(COORD_SCRIPTS / "delegate_end.py", "d1", "--now",
+                                 env_extra={"HC_TERMINAL_ID": "t1", "HOME": str(self.sb.root)})
+        self.assertEqual(res.returncode, 1, res.stdout + res.stderr)
+        self.assertIn("finding: Clock skips an hour", res.stdout)
+        self.assertIn("--relayed", res.stdout)
+
     def test_delegate_end_refuses_legacy_codex_record(self):
         ended_dir = self.sb.state_dir / "ended"
         ended_dir.mkdir(parents=True)

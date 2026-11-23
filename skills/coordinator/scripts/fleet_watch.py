@@ -28,12 +28,15 @@ together. Other events wait until 10 minutes after the last exit.
 
 Urgent events:
 
-  ask <agent> <count> · <text>   its inbox holds more items for the user
+  ask <agent> <count> · <text>   its inbox holds more questions and tasks for the user
   gone <agent>                   no live terminal runs it any more
   unknown <agent>                its terminal has reported no status for 5 minutes
                                  with the Mac awake
   settled <agent> blocked        stopped on a dialog or a question
   settled <agent> error          stopped on an error: read its terminal
+                                 A settled line ends with · <n> findings in
+                                 its inbox when its saved inbox holds open
+                                 findings.
   pr <repo>#<n> merged|closed    the PR left the open state
   pr <repo>#<n> checks failure   checks finished and failed
   pr <repo>#<n> review changes_requested
@@ -43,7 +46,14 @@ Other events:
 
   settled <agent> idle|done      finished a turn. A compaction while idle is
                                  not a turn and prints nothing.
-  report <agent> <path>          its REPORT.md changed and it has settled
+  report <agent> <path> · <n> questions, <n> issues, <n> findings
+                                 its REPORT.md changed and it has settled.
+                                 The counts are the list entries under the
+                                 report's "Questions for the user", "Issues
+                                 filed" and "Findings" headings, for each
+                                 heading it has; a report with none of them
+                                 gets no counts. Then · <n> findings in its
+                                 inbox, as for settled.
   pr <repo>#<n> checks success   checks finished and passed
   pr <repo>#<n> review <state>   review decision changed
   pr <repo>#<n> comments <n>     new reviews or comments from other accounts
@@ -55,6 +65,13 @@ Other events:
                                  one is shown after its parent's first words.
                                  It prints once for the date and the entry's
                                  own first 60 characters.
+  issue <number> · <title> · <url>
+                                 with --domain: an open issue was created in
+                                 a repo whose checkout the backlog's Boundary
+                                 names, and neither the backlog nor an open
+                                 item in the coordinator's saved inbox names
+                                 it. watch_issues.py says how. Each issue
+                                 prints once.
 
 Lines that end the watch without an event:
 
@@ -126,12 +143,11 @@ GATHER_SECONDS = 15
 NON_URGENT_GAP_SECONDS = 600
 ALIVE_SECONDS = 600
 BLIND_SECONDS = 900
-UNKNOWN_SECONDS = 300
 COMMAND_TIMEOUT_SECONDS = 60
 OWNER_MISSES_BEFORE_GONE = 2
 NAME_MISSES_BEFORE_UNKNOWN = 2
-SETTLED = {"idle", "done", "blocked", "error"}
-URGENT = re.compile(r"^(ask|gone|unknown|owner|pr \S+ (merged|closed|checks failure|review changes_requested|not found))|(blocked|error)$")
+URGENT = re.compile(r"^(ask|gone|unknown|owner|pr \S+ (merged|closed|checks failure|review changes_requested|not found))"
+                    r"|^settled \S+ (blocked|error)\b")
 STATE_SOURCE = "hc"
 RULE_SECONDS = 20
 
@@ -144,34 +160,13 @@ from update_check import update_line  # noqa: E402
 from waiting_label import declare_waiting  # noqa: E402
 from watch_cache import (AgentCache, StateSaver, failures_carried_over, github_blind_line,  # noqa: E402
                          load_json as load, pr_poll_delay, prune_state, save_json_atomic as save)
+from watch_agents import agent_events, agent_snapshot, ended_delegates, was_ended  # noqa: E402
+from watch_issues import domain_issue_sources, issue_lines, open_issues_since  # noqa: E402
 from watch_domain import (adopt_earlier_pr, copy_to_same_pr, copy_to_same_terminal, domain_member_names,  # noqa: E402
                           domain_pull_requests, given_terminals, named, slug_spec, under_watch_names,
                           watched_agent_names, watched_pr_specs, written_before_domain)
 from watch_lock import take_state_lock  # noqa: E402
 from watch_prs import ended_lines, pr_events, pr_snapshot  # noqa: E402
-
-
-def ended_delegates():
-    """Records of delegates ended with delegate_end.py."""
-    try:
-        return fleet.ended_records()
-    except Exception:
-        return []
-
-
-def was_ended(name, was, ended):
-    """By session when the watcher saw the delegate alive, so a reused name is not mistaken for it."""
-    records = [record for record in ended if isinstance(record, dict)]
-    if was.get("session"):
-        return any(record.get("session") == was["session"] for record in records)
-    return any(record.get("name") == name for record in records)
-
-
-def transcript_marks(agent):
-    try:
-        return fleet.transcript_marks(fleet.session_of(agent))
-    except Exception:
-        return None, None
 
 
 def live_agents(cache=None):
@@ -180,92 +175,6 @@ def live_agents(cache=None):
         return cache.load() if cache is not None else fleet.load_agents()
     except Exception:
         return None
-
-
-def report_mtime(cwd, name, cwd_is_shared):
-    """A repo delegate reports in its worktree's .scratch; a delegate with no repo reports beside its brief.
-
-    A .scratch/REPORT.md in a cwd that another watched delegate shares
-    cannot be told apart, so it is not read.
-    """
-    candidates = [os.path.join(cwd, ".scratch", "REPORT.md")] if cwd and not cwd_is_shared else []
-    candidates.append(os.path.join(fleet.BRIEFS_DIR, name, "REPORT.md"))
-    for path in candidates:
-        if os.path.exists(path):
-            return path, os.path.getmtime(path)
-    return None, None
-
-
-def agent_snapshot(names, agents, seen, clock, ended=()):
-    by_name = named(agents)
-    watched_cwds = [by_name[name].get("cwd") for name in names if name in by_name]
-    snap = {}
-    for name in names:
-        a = by_name.get(name)
-        was = seen.get(name, {})
-        if a is None:
-            snap[name] = {"present": False, "ended": was_ended(name, was, ended), "session": was.get("session")}
-            continue
-        status = a["status"]
-        turn_ended = status in SETTLED and (a["turn"] != was.get("turns") or was.get("status") not in SETTLED)
-        if turn_ended or "responded" not in was:
-            responded, compacted = transcript_marks(a)
-        else:
-            responded, compacted = was.get("responded"), was.get("compacted")
-        cwd = a["cwd"]
-        path, mtime = report_mtime(cwd, name, watched_cwds.count(cwd) > 1)
-        if status not in SETTLED:
-            mtime = was.get("report_mtime", mtime)
-        unknown_since = (was.get("unknown_since") or clock.read()) if status is None else None
-        without_status_too_long = unknown_since is not None and (
-            bool(was.get("stuck")) or clock.awake_seconds_since(unknown_since) >= UNKNOWN_SECONDS)
-        snap[name] = {
-            "present": True,
-            "status": status,
-            "turns": a["turn"],
-            "asks": a["inbox_asks"],
-            "inbox": f"{a['inbox_asks']} · {a['inbox_status']}",
-            "report": path,
-            "report_mtime": mtime,
-            "unknown_since": unknown_since,
-            "stuck": without_status_too_long,
-            "responded": responded,
-            "compacted": compacted,
-            "session": a["session"],
-        }
-    return snap
-
-
-def only_compacted(was, now):
-    """The transcript gained a compaction and no assistant entry since the last snapshot."""
-    return bool(
-        now.get("compacted") and now["compacted"] != was.get("compacted")
-        and was.get("responded") and now.get("responded") == was["responded"]
-    )
-
-
-def agent_events(old, new):
-    for name, now in new.items():
-        was = old.get(name)
-        if was is None:
-            continue
-        if was.get("present") and not now["present"]:
-            if not now.get("ended"):
-                yield f"gone {name}"
-            continue
-        if not now["present"] or not was.get("present"):
-            continue
-        became_settled = now["status"] in SETTLED and was.get("status") not in SETTLED
-        turn_ended = now["status"] in SETTLED and (now["turns"] != was.get("turns") or became_settled)
-        if turn_ended and (now["status"] in ("blocked", "error") or not only_compacted(was, now)):
-            yield f"settled {name} {now['status']}"
-        if now["stuck"] and not was.get("stuck"):
-            yield f"unknown {name}"
-        if now["asks"] > was.get("asks", 0):
-            yield f"ask {name} {now['inbox']}"
-        report_moved = bool(was.get("report")) and now["report"] != was.get("report")
-        if now["report_mtime"] and now["report_mtime"] != was.get("report_mtime") and not report_moved:
-            yield f"report {name} {now['report']}"
 
 
 class RulesTimeout(BaseException):
@@ -432,6 +341,7 @@ def main():
         for spec in domain_prs:
             adopt_earlier_pr(prs_seen, spec)
     due_fired = saved.get("due_fired") if isinstance(saved.get("due_fired"), list) else []
+    issues_seen = saved.get("issues") if isinstance(saved.get("issues"), dict) else {}
     last_agents = None
     owner_session = os.environ.get("CLAUDE_CODE_SESSION_ID")
     started_at = time.time()
@@ -460,7 +370,8 @@ def main():
         state_saver.save({"source": STATE_SOURCE, "agents": agents_seen, "prs": prs_seen, "pending": pending,
                           "last_wake_at": last_wake_at, "clock": clock.reading(),
                           "watched_agents": watched_names(), "watched_prs": watched_specs(),
-                          "due_fired": due_fired, "github_failing_since": github_failing_since}, force=force)
+                          "due_fired": due_fired, "issues": issues_seen,
+                          "github_failing_since": github_failing_since}, force=force)
 
     def end(line):
         save_state(events, force=True)
@@ -530,6 +441,18 @@ def main():
                 adopt_earlier_pr(prs_seen, spec)
             now_prs, failed = pr_snapshot(specs)
             failed = {**{slug: why for slug, why in searched.items() if why}, **failed}
+            issue_repos = []
+            if args.domain and last_agents is not None:
+                try:
+                    issue_repos, backlog_text, inbox_text = domain_issue_sources(args.domain, last_agents)
+                    lines, issues_now, issues_failed = issue_lines(issue_repos, issues_seen, time.time(),
+                                                                   open_issues_since, backlog_text, inbox_text)
+                except Exception:
+                    issue_repos = []
+                else:
+                    issues_seen = issues_now
+                    events += lines
+                    failed = {**issues_failed, **failed}
             events += pr_events(prs_seen, now_prs)
             prs_seen = merged(prs_seen, now_prs)
             copy_to_same_pr(prs_seen, now_prs)
@@ -539,7 +462,7 @@ def main():
             if args.domain:
                 lines, due_fired = due_lines(args.domain, time.strftime("%Y-%m-%d"), due_fired)
                 events += lines or []
-            for repo in dict.fromkeys([spec.rsplit("#", 1)[0] for spec in specs] + list(searched)):
+            for repo in dict.fromkeys([spec.rsplit("#", 1)[0] for spec in specs] + list(searched) + sorted(issue_repos)):
                 blind = github_blind_line(repo, failed.get(repo), github_failing_since, clock, BLIND_SECONDS)
                 if blind:
                     return end(blind)

@@ -27,7 +27,10 @@ agent in a terminal that stays alive and shows them all in one app.
 - The watcher, `fleet_watch.py`, runs in the background and wakes the
   coordinator when a delegate finishes, asks something or gets stuck. It
   also wakes it when a pull request is merged, fails its checks or gets a
-  review.
+  review, and when someone opens an issue in one of the domain's repos
+  that neither the backlog nor the coordinator's inbox names. Its line for
+  a finished delegate counts the questions, filed issues and findings in
+  the delegate's report.
 - The cap check keeps at most three delegates working at once.
 - Quiet delegates are ended after a day without a response, and resumed
   with the same session when something arrives for them.

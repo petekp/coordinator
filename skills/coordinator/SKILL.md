@@ -177,8 +177,26 @@ that date. Take the marker out once the step is done, or change the date. When
 the watcher prints a `rule ·` line saying these skills are behind their
 upstream, tell the user in your next reply, with the commands it gives,
 and leave the pull to them. When a delegate settles, read its
-`REPORT.md`. Handle each question as **A delegate's question is an
-ask** says. A permission prompt, including a folder trust prompt, is the
+`REPORT.md` and account for every entry under its three headings, whose
+counts the watcher's `report` line gives. Handle each entry under
+"Questions for the user" as **A delegate's question is an ask** says, and
+each entry under "Issues filed" as an `issue` line below. For each entry
+under "Findings", and each finding a `settled` or `report` line counts in
+the delegate's inbox, record a finding in your own inbox when it is in the
+domain or blocks it. Otherwise leave a note for its owner, as **Boundary**
+says. `delegate_end.py` refuses to end a delegate whose inbox holds a
+finding until you pass `--relayed`.
+
+The watcher prints `issue <number> · <title> · <url>` for an open issue
+created in a repo your Boundary names, unless your backlog or an open item
+in your inbox already names it. For each one, record the question "Fix #N
+now or later?" in your inbox, with the options "Fix now" and "Later", your
+recommendation and the issue's link. Issues that arrive together share one
+question that names them all. When a delegate is already fixing the issue,
+a backlog line on that delegate's item that names the issue is enough. Each
+issue prints once.
+
+A permission prompt, including a folder trust prompt, is the
 user's to answer in that tab, so name the tab. Their "go ahead" covers the
 brief up to its stop points. Each stop point takes a fresh yes, unless this
 skill or Standing yes already approves that step, as with a push. Ask for

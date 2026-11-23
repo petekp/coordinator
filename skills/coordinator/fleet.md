@@ -109,6 +109,16 @@ the tab and do not send again.
   or under one, is skipped. It prints once for each date and item, so an
   edit after the item's first 60 characters does not print it again.
 
+  With `--domain`, `issue <number> · <title> · <url>` is one of the other
+  events too. It means an open issue was created in a repo whose checkout
+  your Boundary names, and neither your backlog nor an open item in your
+  inbox names it. An issue counts as named by its link, by
+  `<owner>/<repo>#<number>`, or, when the Boundary names one repo, by a bare
+  `#<number>`. Each issue prints once, five minutes or more after it was
+  created. The watcher reads issues every 90 seconds and remembers
+  which it has seen in its state file, so a restart does not repeat them.
+  SKILL.md says what to do with one.
+
   Handle every line, then arm it again with the same command. A line that
   starts `rule ·` is a standing rule with its command: follow it. Ignore
   `alive` and `stopped`. `owner gone`, `parent gone` and `blind` mean it
@@ -129,7 +139,13 @@ the tab and do not send again.
   its top item when it holds one, otherwise what the session is doing. `fleet_status.py` joins your
   delegates to their pull requests and inbox items. Sweep at Start, after
   compaction or a restart, and when the watcher fires.
-- A settled delegate: read its `REPORT.md` and its inbox labels first. For a
+- A settled delegate: read its `REPORT.md` and its inbox labels first. A
+  `report` line counts the entries under the report's "Questions for the
+  user", "Issues filed" and "Findings" headings, as in
+  `report <name> <path> · 2 questions, 1 issue, 3 findings`. A report
+  without those headings gets no counts. A `settled` or `report` line that
+  ends with `· <n> findings in its inbox` counts the open findings the
+  delegate recorded in its own inbox. `fleet_status.py` lists them. For a
   blocked one, read its terminal: `hc read --lines 120 <name>`. The text
   shows whether it is a permission dialog or a question.
 
@@ -166,8 +182,9 @@ that ends it. Run it at Start and when the watcher prints its `rule ·` line
 about quiet delegates. Ending stops the session and removes its terminal and
 tab. The worktree, branch, backlog line, transcript and inbox items stay,
 and `fleet_status.py` lists the delegate as ended. The command refuses a
-delegate whose inbox holds items: relay each to the user, or close the ones
-the backlog already settles, then pass `--relayed`. Write "ended <date>" on
+delegate whose inbox holds questions, tasks or open findings: relay each to
+the user, or close the ones the backlog already settles, then pass
+`--relayed`. Write "ended <date>" on
 its backlog line. A domain in the config's `keep_running` list never has its
 delegates ended.
 

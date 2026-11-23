@@ -54,7 +54,6 @@ Whenever you stop, write `REPORT.md` beside this brief, with:
 - what changed: files and commits
 - what you verified and how: the command, the log path, the exit status
 - what waits on the user, and any answer they gave you directly
-- each open question, with your recommendation
 - made outside the worktree: everything you created that removing this
   worktree would not remove, each with how to remove it. That covers
   running processes with PID or port, tmux sessions, browser tabs, virtual
@@ -62,8 +61,20 @@ Whenever you stop, write `REPORT.md` beside this brief, with:
   "nothing" when there is none. The coordinator removes these when your
   task lands.
 
-Put questions and tasks for the user here, not in an inbox of your own. The
-coordinator asks the user in one place and relays their answers.
+Then add these three headings, each with one list entry per item, and no
+entries when it has none:
+
+- `## Questions for the user`: each question or task for the user, with its
+  options and your recommendation.
+- `## Issues filed`: each issue you filed, by link, and whether this task
+  fixes it.
+- `## Findings`: each problem you noticed and did not fix, each
+  work-around, and each part you did not check.
+
+The coordinator's watcher counts the entries under each heading, so give
+each item its own entry. Put questions and tasks for the user here, not in
+an inbox of your own. The coordinator asks the user in one place and relays
+their answers.
 
 Send your coordinator no message for progress or for a question. Write
 `REPORT.md` and end your turn with the same in your reply, and the

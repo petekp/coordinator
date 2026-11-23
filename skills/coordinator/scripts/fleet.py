@@ -42,7 +42,6 @@ BRIEFS_DIR = BACKLOG_DIR / "briefs"
 STATE_DIR = Path(CONFIG["state_dir"]).expanduser()
 ENDED_DIR = STATE_DIR / "ended"
 WATCH_DIR = STATE_DIR / "watch"
-INBOX_STORES = HOME / ".claude" / "plugins" / "store"
 SESSION_FILES = HOME / ".claude" / "sessions"
 SCRIPTS = str(Path(__file__).resolve().parent)
 DOMAINS_KEPT_RUNNING = set(CONFIG["keep_running"])
@@ -261,9 +260,9 @@ def repo_of(cwd: str, cache: dict[str, tuple]) -> tuple[str | None, str | None, 
     return cache[cwd]
 
 
-def backlog_repos(text: str, cache: dict[str, tuple]) -> set[str]:
-    """Repos the backlog links a pull request in, and the checkouts its Boundary names by their top folder."""
-    slugs = set(re.findall(r"github\.com/([\w.-]+/[\w.-]+)/pull/\d+", text))
+def boundary_repos(text: str, cache: dict[str, tuple]) -> set[str]:
+    """Repos of the checkouts the backlog's Boundary names by their top folder."""
+    slugs = set()
     for path in set(re.findall(r"(?<![\w.])(?:~|/)[\w./-]+", section_text(text, "## Boundary"))):
         folder = os.path.realpath(os.path.expanduser(path.rstrip("./")))
         is_checkout = Path(folder).is_dir() and git(folder, "rev-parse", "--show-toplevel") == folder
@@ -271,6 +270,11 @@ def backlog_repos(text: str, cache: dict[str, tuple]) -> set[str]:
         if slug:
             slugs.add(slug)
     return slugs
+
+
+def backlog_repos(text: str, cache: dict[str, tuple]) -> set[str]:
+    """Repos the backlog links a pull request in, and the checkouts its Boundary names by their top folder."""
+    return set(re.findall(r"github\.com/([\w.-]+/[\w.-]+)/pull/\d+", text)) | boundary_repos(text, cache)
 
 
 def names_pull_request(text: str, slug: str, number: int, needs_link: bool) -> bool:
@@ -460,34 +464,6 @@ def claude_code_version(session_id: str) -> str:
         if saved.get("sessionId") == session_id:
             return saved.get("version") or "?"
     return "?"
-
-
-def inbox_store() -> Path | None:
-    """The inbox mod's saved state, which Claude Code keeps as inbox_<source>-<hash>.json. None without the inbox."""
-    if CONFIG["inbox_store"]:
-        return Path(CONFIG["inbox_store"]).expanduser()
-    found = sorted(INBOX_STORES.glob("inbox_*.json"))
-    if len(found) > 1:
-        raise CheckError(f"more than one inbox store: {', '.join(map(str, found))}. "
-                         f"Name the one to read as inbox_store in {CONFIG_FILE}")
-    return found[0] if found else None
-
-
-def saved_inbox(store: Path | None) -> dict:
-    """Each session's saved inbox, by session id."""
-    if store is None or not store.is_file():
-        return {}
-    return {key[2:]: value for key, value in json.loads(store.read_text()).items() if key.startswith("s:")}
-
-
-def inbox_items(agent: dict, store: Path | None = None) -> list[str]:
-    """What the agent's inbox holds for the user: the saved items, else its terminal's count of asks."""
-    saved = saved_inbox(store or inbox_store()).get(session_of(agent))
-    if saved:
-        return [f"{item['kind']}: {item.get('ask') or item.get('title')}" for item in saved["ledger"]["items"]]
-    if agent["inbox_asks"]:
-        return [f"not saved by the inbox; its terminal shows {agent['inbox_asks']} asks: {agent['inbox_status']}"]
-    return []
 
 
 def claude_transcript(session_id: str) -> str | None:
