@@ -118,7 +118,7 @@ def domain_issue_sources(domain, agents, store=None):
     """The repos the domain owns, the backlog's text, and the text of the open items in the coordinator's
     saved inbox."""
     herd = fleet.Fleet(agents=agents)
-    text = herd.backlog(domain).read_text()
+    text = herd.text(domain)
     coordinator = herd.coordinator_of(domain)
     inbox_text = ""
     if coordinator:

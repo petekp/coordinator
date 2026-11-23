@@ -207,6 +207,48 @@ class TestIssueLines(unittest.TestCase):
         self.assertIn("issue read failed", failed["org/app"])
 
 
+class TestRuleLinesAndDueDates(unittest.TestCase):
+    def setUp(self):
+        self.sb = Sandbox()
+        self.sb.write_stub("hc", "echo '{\"terminals\": []}'\n")
+
+    def tearDown(self):
+        self.sb.cleanup()
+
+    def rule_lines(self) -> list[str]:
+        res = self.sb.run_python("import fleet_watch; print('\\n'.join(fleet_watch.rule_lines('demo')))")
+        self.assertEqual(res.returncode, 0, res.stderr)
+        return [line for line in res.stdout.splitlines() if line]
+
+    def test_done_over_its_limit_names_the_cut_and_notes_over_theirs_name_the_largest_items(self):
+        done = "".join(f"- 2026-11-0{i % 9 + 1} Item {i} " + "x" * 200 + "\n" for i in range(120))
+        self.sb.write_backlog("demo", f"# demo\n\n## Boundary\nOwns.\n\n## Open\n- One.\n\n## Done\n{done}")
+        lines = self.rule_lines()
+        self.assertEqual(len(lines), 1)
+        self.assertRegex(lines[0], r"^rule · in your backlog, Done is \d+\.\d KB, limit 20 · Run \S+/backlog_check.py demo --cut-done")
+        (self.sb.backlog_dir / "demo-backlog.md").unlink()
+        self.sb.write_notes("demo", "# demo\n\n## Open\n- **Big.** " + "y" * 21_000 + "\n- Small.\n", "## Later\n\n## Done\n")
+        lines = self.rule_lines()
+        self.assertEqual(len(lines), 1)
+        self.assertRegex(lines[0], r'^rule · in your notes, the notes file is 21\.\d KB, limit 20 · Its largest Open items: "Big\. y+…" 21\.\d KB; "Small\." ')
+
+    def test_a_separate_file_under_the_older_name_gets_a_rule_line(self):
+        self.sb.write_notes("demo", "# demo\n\n## Open\n", "## Later\n\n## Done\n")
+        self.sb.write_backlog("demo", "# demo\n\n## Open\n- Stray edit.\n\n## Done\n")
+        lines = self.rule_lines()
+        self.assertEqual(len(lines), 1)
+        self.assertIn("demo-backlog.md is a separate file from", lines[0])
+
+    def test_due_dates_in_later_fire_and_open_keys_do_not_change(self):
+        self.sb.write_notes("demo", "# demo\n\n## Open\n- Check metrics due: 2026-11-18\n",
+                            "## Later\n\n- Re-measure ranking due: 2026-11-20\n- Not yet due: 2026-12-30\n\n## Done\n- 11-15 x due: 2026-11-01\n")
+        res = self.sb.run_python("import due_steps; lines, come = due_steps.due_lines('demo', '2026-11-22', []); print(lines); print(come)")
+        self.assertEqual(res.returncode, 0, res.stderr)
+        self.assertEqual(res.stdout.splitlines()[0],
+                         "['due 2026-11-18 · Check metrics due: 2026-11-18', 'due 2026-11-20 · Re-measure ranking due: 2026-11-20']")
+        self.assertIn("'2026-11-18 Check metrics due: 2026-11-18'", res.stdout.splitlines()[1])
+
+
 class TestWatcherCheckCLI(unittest.TestCase):
     def setUp(self):
         self.sb = Sandbox()

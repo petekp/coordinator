@@ -56,6 +56,19 @@ class TestDelegateCap(unittest.TestCase):
         self.assertEqual(res2.returncode, 1)
         self.assertIn("REFUSED", res2.stdout)
 
+    def test_an_unlabelled_delegate_named_only_in_later_still_counts(self):
+        (self.sb.backlog_dir / "demo-backlog.md").unlink()
+        self.sb.write_notes("demo", "# demo\n\n## Boundary\nOwns.\n\n## Open\n",
+                            "## Later\n\n- Parked by mistake with its handle, session abcd1234.\n\n## Done\n")
+        unlabelled = dict(make_terminal("t5", "d9", "demo", "working"), labels={"fleet.session": "abcd1234-0000"},
+                          foreground={"argv": ["claude"]})
+        tf = self.sb.root / "terms.json"
+        tf.write_text(json.dumps([make_terminal("t1", None, "demo", "done", role="coordinator"), unlabelled]))
+        res = self.sb.run_script(COORD_SCRIPTS / "delegate_cap.py", "--domain", "demo", "--terminals", str(tf))
+        self.assertEqual(res.returncode, 0, res.stdout + res.stderr)
+        self.assertIn("working  d9 t5", res.stdout)
+        self.assertIn("1 of 3 working", res.stdout)
+
     def test_send_allowed_when_target_already_working_and_refused_for_idle_at_cap(self):
         send_log = self.sb.root / "sends.log"
         self.sb.write_stub("hc", f'echo "$@" >> "{send_log}"\necho "{{\\"ok\\":true}}"\n')

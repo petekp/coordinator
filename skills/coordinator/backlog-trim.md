@@ -25,9 +25,10 @@ fleet watcher prints a `rule ·` line about your backlog's size, trim it.
    about one open item stay in that item. Words about finished work are
    dropped and listed.
 4. Run `<scripts>/backlog_check.py <domain> --cut-done`. It deletes the
-   oldest lines of Done until Done is under its limit. When Git does not
-   hold those lines, it first saves them to `<backlog_dir>/trims/` and
-   prints the path.
+   oldest lines of Done until Done is at most half its limit. When Git
+   tracks the backlog, it deletes only lines the last commit holds. When
+   Git does not, it first saves them to `<backlog_dir>/trims/` and prints
+   the path.
 5. Write `Trimmed <date>. Earlier text: <commit hash or saved copy>.` as
    the line under the title.
 6. Run `<scripts>/backlog_check.py <domain> --since <hash> --ledger <file>`,

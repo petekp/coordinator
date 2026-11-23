@@ -46,7 +46,7 @@ def domain_pull_requests(domain, agents):
     """The open pull requests the domain's backlog names, as owner/name#number; each searched repo's open
     numbers; why a repo's search failed; and the backlog's text."""
     herd = fleet.Fleet(agents=agents)
-    text = herd.backlog(domain).read_text()
+    text = herd.text(domain)
     ended_repos = {fleet.repo_of(record["cwd"], herd.checkouts)[0] for record in fleet.ended_records(domain)}
     open_numbers, failed = {}, {}
     for slug in sorted((herd.repos_of(domain) | ended_repos) - {None}):

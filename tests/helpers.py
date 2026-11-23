@@ -56,6 +56,34 @@ class Sandbox:
         path.write_text(text)
         return path
 
+    def write_notes(self, domain: str, text: str, later: str | None = None) -> Path:
+        path = self.backlog_dir / f"{domain}-notes.md"
+        path.write_text(text)
+        if later is not None:
+            (self.backlog_dir / f"{domain}-later.md").write_text(later)
+        return path
+
+    def git(self, *args: str) -> None:
+        subprocess.run(["git", "-C", str(self.backlog_dir), *args], check=True, capture_output=True)
+
+    def commit_all(self, message: str = "save") -> None:
+        if not (self.backlog_dir / ".git").exists():
+            self.git("init", "-q")
+            self.git("config", "user.email", "test@example.com")
+            self.git("config", "user.name", "Test")
+        self.git("add", "-A")
+        self.git("commit", "-q", "-m", message)
+
+    def run_python(self, code: str, env_extra: dict | None = None) -> subprocess.CompletedProcess:
+        return subprocess.run(
+            [sys.executable, "-c", f"import sys; sys.path.insert(0, {str(COORD_SCRIPTS)!r})\n{code}"],
+            capture_output=True,
+            text=True,
+            env=self.env(env_extra),
+            cwd=str(self.root),
+            timeout=30,
+        )
+
     def env(self, extra: dict | None = None) -> dict:
         env = dict(os.environ)
         env["PATH"] = f"{self.bin_dir}:{env.get('PATH', '')}"

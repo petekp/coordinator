@@ -58,8 +58,8 @@ Other events:
   pr <repo>#<n> review <state>   review decision changed
   pr <repo>#<n> comments <n>     new reviews or comments from other accounts
   due <date> · <text>            with --domain: a list entry in the backlog's
-                                 Open section carries due: <date>, and that
-                                 date has come. An entry starts with -, *, +
+                                 Open or Later section carries due: <date>,
+                                 and that date has come. An entry starts with -, *, +
                                  or a number and . or ). One checked off with
                                  [x], or under one, is skipped, and a nested
                                  one is shown after its parent's first words.
@@ -99,9 +99,10 @@ They never end the watch on their own:
                                  you ended with delegate_end.py. Run the
                                  command to give it the work.
   rule · <text>                  a standing rule and its command: delegates
-                                 quiet for over a day, a backlog over its
-                                 size limit, and an update to these skills,
-                                 checked at most daily. Follow each.
+                                 quiet for over a day, notes over a size
+                                 limit or with a stray copy, and an update to
+                                 these skills, checked at most daily. Follow
+                                 each.
 
 A delegate ended with delegate_end.py prints no `gone` and no `no agent`.
 
@@ -153,6 +154,7 @@ RULE_SECONDS = 20
 sys.path.insert(0, os.path.dirname(os.path.realpath(__file__)))
 import backlog  # noqa: E402
 import fleet  # noqa: E402
+import notes_files  # noqa: E402
 from due_steps import due_lines  # noqa: E402
 from mac_clock import MacClock  # noqa: E402
 from update_check import update_line  # noqa: E402
@@ -185,10 +187,7 @@ def rule_lines(domain):
     herd = fleet.Fleet()
     if domain not in herd.backlogs:
         return []
-    lines = []
-    text = herd.backlog(domain).read_text()
-    for part in backlog.parts_over_their_limit(text):
-        lines.append(f"rule · in your backlog, {part} · {backlog.what_to_do_when_over(text)}")
+    lines = [f"rule · {rule}" for rule in backlog.Notes(herd.files(domain)).standing_rules()]
     now = fleet.dt.datetime.now(fleet.dt.timezone.utc)
     quiet = 0
     for member in herd.members_of(domain) if domain not in fleet.DOMAINS_KEPT_RUNNING else []:
@@ -310,7 +309,7 @@ def main():
         return 2
     if args.domain:
         try:
-            fleet.open_section(fleet.BACKLOG_DIR / f"{args.domain}-backlog.md")
+            notes_files.open_section(notes_files.domain_files(args.domain).notes)
         except Exception as error:
             print(f"no backlog {args.domain} · {error}", flush=True)
             return 2

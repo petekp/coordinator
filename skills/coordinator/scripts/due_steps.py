@@ -1,6 +1,6 @@
 """
-Steps in a backlog's Open section that carry `due: YYYY-MM-DD`, for the
-fleet watcher's `due` lines.
+Steps in a backlog's Open and Later sections that carry `due: YYYY-MM-DD`,
+for the fleet watcher's `due` lines.
 """
 import datetime as dt
 import re
@@ -83,12 +83,12 @@ def dated_steps(open_text):
 
 
 def due_lines(domain, today, fired):
-    """A `due` line for each dated step in the domain's Open section whose date has come and that has had
+    """A `due` line for each dated step in the domain's Open or Later section whose date has come and that has had
     no line, and the key of every dated step whose date has come. A step's key is its date and the first
     DUE_KEY_CHARS characters of its own text, so an edit further on does not print it again. Steps with the
     same key are numbered in order. The lines are None when the backlog cannot be read."""
     try:
-        open_text = fleet.open_section(fleet.BACKLOG_DIR / f"{domain}-backlog.md")
+        open_text = fleet.open_and_later(fleet.domain_files(domain))
     except Exception:
         return None, fired
     lines, come = [], []

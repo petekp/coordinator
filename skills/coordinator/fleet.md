@@ -10,7 +10,7 @@ terminal's name. A delegate is **settled** when `hc ls` shows its status as
 The scripts find a coordinator by two labels on its terminal, set once at
 Start: `hc label "$HC_TERMINAL_ID" fleet.role=coordinator fleet.domain=<domain>`.
 They find its delegates by the `fleet.domain` label that `delegate_start.py`
-sets, or by a session id in the backlog's Open section.
+sets, or by a session id in the backlog's Open or Later section.
 
 `<scripts>` below is this skill's `scripts/` folder.
 
@@ -103,7 +103,7 @@ the tab and do not send again.
   events wait until 10 minutes after the last wake-up.
 
   With `--domain`, `due <date> · <text>` is one of the other events. It
-  means a list item in your backlog's Open section carries
+  means a list item in your backlog's Open or Later section carries
   `due: YYYY-MM-DD` and has reached its date. A list item starts with `-`,
   `*`, `+` or a number followed by `.` or `)`. One checked off with `[x]`,
   or under one, is skipped. It prints once for each date and item, so an

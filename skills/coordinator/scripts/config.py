@@ -3,6 +3,10 @@ The user's settings for the coordinator scripts, from
 ~/.config/coordinator/config.json or the file COORDINATOR_CONFIG names.
 Every key is optional; DEFAULTS lists them. An unknown key, or a value of
 the wrong JSON type, stops every script with exit status 2.
+
+backlog_dir and backlog_limit_kb are the older names of notes_dir and
+notes_limit_kb, and either name works. A limit left unset takes the default
+for the shape of the domain's notes file, which backlog.py gives.
 """
 
 from __future__ import annotations
@@ -14,19 +18,21 @@ from pathlib import Path
 
 CONFIG_FILE = Path(os.environ.get("COORDINATOR_CONFIG") or Path.home() / ".config" / "coordinator" / "config.json").expanduser()
 DEFAULTS = {
-    "backlog_dir": "~/.config/coordinator/backlogs",
+    "notes_dir": "~/.config/coordinator/backlogs",
     "state_dir": "~/.local/state/coordinator",
     "keep_running": [],
     "delegate_claude_args": [],
     "delegate_env": {},
     "inbox_store": None,
-    "backlog_limit_kb": 40,
-    "done_limit_kb": 20,
+    "notes_limit_kb": None,
+    "done_limit_kb": None,
     "trim_by_delegate_over_kb": 150,
     "user_names": [],
     "open_ask_patterns": [],
     "check_for_updates": True,
 }
+TYPES_OF_UNSET_DEFAULTS = {"notes_limit_kb": int, "done_limit_kb": int}
+OLDER_NAMES = {"backlog_dir": "notes_dir", "backlog_limit_kb": "notes_limit_kb"}
 # Accepted and ignored so older config files keep working during upgrade.
 DEPRECATED_KEYS = {"pr_limits", "delegate_codex_overrides"}
 
@@ -39,13 +45,20 @@ def load_config(path: Path = CONFIG_FILE) -> dict:
         raise ValueError(f"cannot read {path}: {error}")
     if not isinstance(saved, dict):
         raise ValueError(f"{path} holds no JSON object")
-    unknown = sorted(set(saved) - set(DEFAULTS) - DEPRECATED_KEYS)
+    unknown = sorted(set(saved) - set(DEFAULTS) - set(OLDER_NAMES) - DEPRECATED_KEYS)
     if unknown:
         raise ValueError(f"{path} has unknown keys: {', '.join(unknown)}. Known keys: {', '.join(DEFAULTS)}")
-    active = {key: value for key, value in saved.items() if key not in DEPRECATED_KEYS}
+    active = {key: value for key, value in saved.items() if key not in DEPRECATED_KEYS and key not in OLDER_NAMES}
+    for older, newer in OLDER_NAMES.items():
+        if older not in saved:
+            continue
+        if newer in saved and saved[newer] != saved[older]:
+            raise ValueError(f"{path} sets both {newer} and its older name {older}, to different values. Keep {newer}")
+        active[newer] = saved[older]
     for key, value in active.items():
-        if DEFAULTS[key] is not None and value is not None and type(value) is not type(DEFAULTS[key]):
-            raise ValueError(f"{path}: {key} must be a JSON {type(DEFAULTS[key]).__name__}")
+        expected = type(DEFAULTS[key]) if DEFAULTS[key] is not None else TYPES_OF_UNSET_DEFAULTS.get(key)
+        if expected is not None and value is not None and type(value) is not expected:
+            raise ValueError(f"{path}: {key} must be a JSON {expected.__name__}")
     merged = {**DEFAULTS, **active}
     if merged["delegate_env"] is None:
         merged["delegate_env"] = {}

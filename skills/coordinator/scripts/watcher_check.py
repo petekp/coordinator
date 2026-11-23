@@ -75,7 +75,7 @@ def save_sends(sent: dict) -> None:
 
 def open_pull_requests_named(herd: fleet.Fleet, domain: str, open_by_repo: dict[str, list[int]]) -> list[str]:
     """The open pull requests the domain's backlog names, among the repos it names, as owner/name#number."""
-    text = herd.backlog(domain).read_text()
+    text = herd.text(domain)
     slugs = sorted(fleet.backlog_repos(text, herd.checkouts))
     for slug in slugs:
         if slug not in open_by_repo:

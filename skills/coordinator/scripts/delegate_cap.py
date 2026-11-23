@@ -14,7 +14,7 @@ go ahead and 1 when it must wait in the backlog queue.
 Run it from the coordinator's terminal, or name the domain. A delegate is
 yours when its terminal carries fleet.domain=<your domain>, which
 delegate_start.py sets, or carries no such label and your backlog's Open
-section names its session id (the first 8 characters are enough). An
+or Later section names its session id (the first 8 characters are enough). An
 unlabelled agent named in two backlogs counts toward both. A delegate is
 working when `hc ls` shows its status as "working".
 

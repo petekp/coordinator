@@ -22,8 +22,27 @@ class TestConfig(unittest.TestCase):
 
     def test_missing_file_uses_defaults(self):
         loaded = config.load_config(self.sb.root / "missing.json")
-        self.assertEqual(loaded["backlog_limit_kb"], 40)
-        self.assertEqual(loaded["done_limit_kb"], 20)
+        self.assertIsNone(loaded["notes_limit_kb"])
+        self.assertIsNone(loaded["done_limit_kb"])
+        self.assertEqual(backlog.limits(False, loaded), (40_000, 20_000))
+        self.assertEqual(backlog.limits(True, loaded), (20_000, 100_000))
+        self.assertEqual(backlog.limits(True, dict(loaded, notes_limit_kb=25)), (25_000, 100_000))
+
+    def test_older_key_names_are_aliases(self):
+        p = self.sb.root / "older.json"
+        p.write_text(json.dumps({"backlog_dir": "~/notes", "backlog_limit_kb": 30}))
+        loaded = config.load_config(p)
+        self.assertEqual(loaded["notes_dir"], "~/notes")
+        self.assertEqual(loaded["notes_limit_kb"], 30)
+        self.assertNotIn("backlog_dir", loaded)
+        p.write_text(json.dumps({"backlog_dir": "~/a", "notes_dir": "~/a"}))
+        self.assertEqual(config.load_config(p)["notes_dir"], "~/a")
+        p.write_text(json.dumps({"backlog_dir": "~/a", "notes_dir": "~/b"}))
+        with self.assertRaises(ValueError):
+            config.load_config(p)
+        p.write_text(json.dumps({"notes_limit_kb": "20"}))
+        with self.assertRaises(ValueError):
+            config.load_config(p)
 
     def test_unknown_key_raises(self):
         p = self.sb.root / "bad.json"
@@ -58,7 +77,7 @@ class TestConfig(unittest.TestCase):
             "backlog_limit_kb": 50,
         }))
         loaded = config.load_config(p)
-        self.assertEqual(loaded["backlog_limit_kb"], 50)
+        self.assertEqual(loaded["notes_limit_kb"], 50)
         self.assertNotIn("pr_limits", loaded)
         self.assertNotIn("delegate_codex_overrides", loaded)
 
@@ -94,6 +113,9 @@ class TestBacklogCheck(unittest.TestCase):
         self.assertEqual(cut.returncode, 0, cut.stdout + cut.stderr)
         self.assertIn("deleted the", cut.stdout)
         self.assertTrue(list((self.sb.backlog_dir / "trims").glob("demo-done-cut-*.md")))
+        done = backlog.sections((self.sb.backlog_dir / "demo-backlog.md").read_text())["## Done"]
+        self.assertLessEqual(len(done.encode()), 10_000)
+        self.assertGreater(len(done.encode()), 9_000)
 
     def test_ledger_clears_dropped_quote_and_ask(self):
         before = self.sb.root / "before.md"

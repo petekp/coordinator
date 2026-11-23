@@ -6,7 +6,8 @@ Print where one coordinator's work stands, grouped by who acts next.
 
 The rows come from two sources, so work stays listed after its delegate's
 session ends: the delegates `hc ls` lists, and the open pull
-requests the domain's backlog names anywhere, as #<number> or pull/<number>.
+requests the domain's backlog or its second file names anywhere, as
+#<number> or pull/<number>.
 
 With the inbox mod installed, it also lists the questions and tasks each
 inbox holds, and the open findings each delegate's inbox holds. A
@@ -164,7 +165,7 @@ def collect(args: argparse.Namespace) -> dict:
             held_elsewhere[(slug, pr["number"])] = label
 
     backlog_only, unnamed = [], []
-    every_backlog = {name: path.read_text() for name, path in backlogs.items()}
+    every_backlog = {name: herd.text(name) for name in backlogs}
     open_numbers = [pr["number"] for prs in pull_requests.values() for pr in prs if pr["state"] == "OPEN"]
     for slug, prs in pull_requests.items():
         for pr in prs:
