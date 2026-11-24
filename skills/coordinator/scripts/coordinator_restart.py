@@ -189,7 +189,7 @@ def coordinator_name(domain: str) -> str:
 
 
 def start_in(address: str, domain: str, cwd: str, label: str) -> None:
-    """Start a new coordinator session in a terminal whose agent has exited."""
+    """Start a new coordinator session in `cwd`, in a terminal at a shell prompt or one whose agent has exited."""
     terminal = json.loads(run(["hc", "get", address, "--json"]))
     program = [fleet.CLAUDE, "--name", label, f"/coordinator {domain}"]
     if terminal.get("state") == "live":
@@ -197,7 +197,7 @@ def start_in(address: str, domain: str, cwd: str, label: str) -> None:
         if not at_a_shell:
             raise Refused(f"terminal {address} is not at a shell prompt, so a command typed there would go to its program")
         run(["hc", "label", address, "fleet.role=coordinator", f"fleet.domain={domain}", *(f"{k}={v}" for k, v in PINNED.items())])
-        send_bare_text(address, shlex.join(program))
+        send_bare_text(address, f"cd {shlex.quote(cwd)} && {shlex.join(program)}")
         report_started(address, domain)
         return
     labels = terminal.get("labels") or {}
