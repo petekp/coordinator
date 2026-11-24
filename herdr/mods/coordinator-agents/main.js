@@ -9,7 +9,7 @@ import { headerButton, initNewMenu, loadPrograms, newMenu } from "./new-agent.js
 import { OTHER_TABS_GROUP, continued, otherTabs, splitTabs, tabRow, tabsSection, treeLines } from "./other-tabs.js";
 import { LABEL, palette, indexOf, nextIndex } from "./colors.js";
 import { agentsWithWaitingAsIdle, waitingAsIdle } from "./waiting.js";
-import { v_flex, h_flex, InputState, Input } from "gpui-base";
+import { v_flex, h_flex, InputState, Input, ScrollHandle } from "gpui-base";
 import { agents, terminals, panes, focused, spaces, run, hc, theme, settings, shared, setShared, setAgentOrder, openOverlay, closeOverlay, props, window, layout } from "herdr";
 
 // What the inbox plugin reports on a session's terminal: why the agent stopped,
@@ -78,6 +78,7 @@ export default class Agents extends View {
     if (isJumper()) return this.initJumper(cx);
     // Colors written but not yet echoed back as labels, by terminal address.
     this.pendingColors = new Map();
+    this.listScroll = ScrollHandle.new();
     this.folded = new Set([OTHER_TABS_GROUP]);
     // Pinned agents whose tabs are shown, by address.
     this.tabsOpen = new Set();
@@ -736,7 +737,7 @@ export default class Agents extends View {
       .when(list.length === 0 && !collapsed, (el) =>
         el.child(div().px(12).text_size(12).text_color(t.dim).child("No agent status yet. Agents show up here when they report their status. Older versions and agents inside tmux may not.")),
       )
-      .child(v_flex().id("ag-list").flex_1().min_h(0).px(collapsed ? 0 : 8).overflow_y_scrollbar().mode("always").children(rows))
+      .child(v_flex().id("ag-list").flex_1().min_h(0).px(collapsed ? 0 : 8).overflow_y_scrollbar().mode("always").track_scroll(this.listScroll).children(rows))
       .when(collapsed, (el) =>
         el.child(
           h_flex()
