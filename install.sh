@@ -1,6 +1,6 @@
 #!/bin/sh
-# Links the coordinator and fleet-sweep skills into Claude Code's and Codex's
-# skill folders, then checks what they need.
+# Links the coordinator and fleet-sweep skills into ~/.claude/skills and
+# ~/.agents/skills, then checks what they need.
 #
 #   ./install.sh            link both skills
 #   ./install.sh --remove   remove the links this script made
@@ -60,7 +60,6 @@ if command -v python3 >/dev/null 2>&1 && ! python3 -c 'import sys; sys.exit(sys.
     missing=1
 fi
 command -v gh >/dev/null 2>&1 || say "not found: gh, which domains with a GitHub repo need"
-command -v codex >/dev/null 2>&1 || say "optional, not found: codex (for Codex delegates)"
 [ "$missing" = 0 ] && say "Every required tool was found."
 
 config=${COORDINATOR_CONFIG:-$HOME/.config/coordinator/config.json}
