@@ -3,7 +3,7 @@
 Start a delegate in its own Herdr app tab, listed under its coordinator.
 
   delegate_start.py <name> --task "<task>" --cwd <worktree> --brief <path> --model sonnet|opus|fable [--effort <effort>]
-  delegate_start.py <name> --task "<task>" --cwd <worktree> --resume <session id>
+  delegate_start.py <name> --task "<task>" --cwd <worktree> --resume <session id> [--model sonnet|opus|fable] [--effort <effort>]
 
 Run it from the coordinator's terminal, after the worktree and the brief
 exist. It runs the cap check, then starts Claude Code in a new herdr-core
@@ -51,12 +51,15 @@ def main() -> int:
     parser.add_argument("--task", required=True, help='a few words for the tab, as in "retry button"')
     parser.add_argument("--cwd", required=True, help="the delegate's worktree, or the domain's folder when it has no repo")
     parser.add_argument("--brief", help="path to the brief the delegate reads first")
-    parser.add_argument("--model", choices=["sonnet", "opus", "fable"], help="for a new Claude Code delegate")
+    parser.add_argument("--model", choices=["sonnet", "opus", "fable"],
+                        help="for a new delegate, or a resumed one that finished no turn yet")
     parser.add_argument("--effort", choices=CLAUDE_CODE_EFFORTS,
-                        help="for a new delegate. Without it, the delegate runs at its settings' effort")
+                        help="effort level; pass again with --resume when set at start")
     parser.add_argument("--resume", metavar="SESSION", help="start this existing session again instead of a new one")
     args = parser.parse_args()
-    if bool(args.resume) == bool(args.brief and args.model):
+    if args.resume and args.brief:
+        parser.error("--resume takes an existing session, not --brief")
+    if not args.resume and not (args.brief and args.model):
         parser.error("for a new delegate pass --brief with --model; for an existing one pass --resume <session id>")
 
     try:
@@ -77,8 +80,6 @@ def main() -> int:
             raise CheckError(f"session {args.resume} is already running")
         if args.resume and not fleet.transcript_of(args.resume):
             raise CheckError(f"no transcript for session {args.resume}")
-        if args.resume and args.effort:
-            raise CheckError(f"session {args.resume} keeps the effort it has")
         if not coordinator.get("space"):
             raise CheckError(f"terminal {coordinator['address']} has no herdr.space label, so the new tab has no space to open in")
 
@@ -92,20 +93,30 @@ def main() -> int:
         tab_label = f"{domain} [{args.task}]"
         first_message = None if args.resume else f"Read {brief} and do what it says."
         session = args.resume or str(uuid.uuid4())
-        effort_flags = ["--effort", args.effort] if args.effort else []
-        how_it_starts = (["--resume", session] if args.resume
-                         else ["--model", args.model, *effort_flags, "--session-id", session, first_message])
+        ended_record = fleet.ended_record_path(session)
+        saved = json.loads(ended_record.read_text()) if args.resume and ended_record.is_file() else {}
+        chosen_model = args.model or saved.get("model")
+        chosen_effort = args.effort or saved.get("effort")
+        prior = fleet.last_response(session, dt.datetime.now(dt.timezone.utc)) if args.resume else None
+        model_flags = ["--model", chosen_model] if chosen_model and (not args.resume or prior is None) else []
+        effort_flags = ["--effort", chosen_effort] if chosen_effort else []
+        how_it_starts = (["--resume", session, *model_flags, *effort_flags] if args.resume
+                         else [*model_flags, *effort_flags, "--session-id", session, first_message])
         program = [fleet.CLAUDE, *fleet.DELEGATE_FLAGS, "--name", tab_label, *how_it_starts]
+        labels = {"fleet.domain": domain, "fleet.task": args.task}
+        if chosen_model:
+            labels["fleet.model"] = chosen_model
+        if chosen_effort:
+            labels["fleet.effort"] = chosen_effort
         terminal = fleet.launch(
             name=args.name, cwd=cwd, tab_label=tab_label, space=coordinator["space"],
-            labels={"fleet.domain": domain, "fleet.task": args.task},
+            labels=labels,
             program=config.with_delegate_env(program), parent=coordinator["address"],
         )
         if not terminal["running"]:
             raise CheckError(f"no agent showed in terminal {terminal['address']} within {fleet.SECONDS_TO_WAIT_FOR_AGENT} "
                              f"seconds. It shows:\n{fleet.terminal_text(terminal['address'])}\n"
                              f"Remove a finished terminal with `hc rm {terminal['address']}` before trying again")
-        ended_record = fleet.ended_record_path(session)
         if ended_record.exists():
             ended_record.unlink()
     except (CheckError, OSError, KeyError, ValueError, subprocess.TimeoutExpired) as error:
@@ -115,10 +126,11 @@ def main() -> int:
     address = terminal["address"]
     _, branch, commit, _ = fleet.repo_of(cwd, {})
     started = dt.datetime.now(dt.timezone.utc).strftime("%m-%d %H:%MZ")
-    model_and_effort = " ".join(filter(None, [args.model, args.effort]))
+    model_and_effort = " ".join(filter(None, [chosen_model, chosen_effort]))
+    resume_tail = f"{model_and_effort + '; ' if model_and_effort else ''}resumed {started}"
     print(f"started {args.name} as terminal {address}, tab \"{tab_label}\". Backlog handle:")
     print(f"  - {args.name} | {address} | \"{tab_label}\" | {cwd} | {branch or commit or 'no repo'} | {session} | "
-          + (f"resumed {started}" if args.resume else f"{model_and_effort}; started {started}; brief {brief}"))
+          + (resume_tail if args.resume else f"{model_and_effort}; started {started}; brief {brief}"))
     if args.resume:
         print(f"Nothing was sent. Send it the work with:\n"
               f"  {fleet.SCRIPTS}/delegate_cap.py --to {args.name} --send \"<what arrived>\"")

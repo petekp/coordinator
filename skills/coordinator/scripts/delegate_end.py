@@ -113,10 +113,13 @@ def end(herd: fleet.Fleet, domain: str, target: str, now: dt.datetime, relayed: 
         ["hc", "read", "--lines", "80", agent["address"]],
         capture_output=True, text=True, timeout=fleet.COMMAND_TIMEOUT_SECONDS,
     ).stdout
+    terminal_info = fleet.terminal_or_none(agent["address"]) or {}
+    terminal_labels = terminal_info.get("labels") or {}
     tab_label = agent["tab_label"] or f"{domain} [{task}]"
     record = dict(
         name=name, task=task, domain=domain, tab_label=tab_label, session=fleet.session_of(agent),
-        program=agent["program"],
+        program=agent["program"], model=terminal_labels.get("fleet.model"),
+        effort=terminal_labels.get("fleet.effort"),
         cwd=agent["cwd"], repo=slug, branch=branch, ended_at=now.isoformat(),
         quiet_since=since.isoformat() if since else None, terminal_text=terminal_text,
     )
@@ -169,10 +172,20 @@ def resume(herd: fleet.Fleet, domain: str, name: str) -> int:
     if record.get("program") == "codex":
         raise Refused(f"{name}'s ended record is a Codex session, which delegate_end.py no longer supports. "
                       f"Resume manually with `codex resume {record['session']}`")
-    program = [fleet.CLAUDE, "--resume", record["session"], *fleet.DELEGATE_FLAGS, "--name", tab_label]
+    saved_model = record.get("model")
+    saved_effort = record.get("effort")
+    model_flags = ["--model", saved_model] if saved_model and not record.get("quiet_since") else []
+    effort_flags = ["--effort", saved_effort] if saved_effort else []
+    program = [fleet.CLAUDE, "--resume", record["session"], *model_flags, *effort_flags,
+               *fleet.DELEGATE_FLAGS, "--name", tab_label]
+    labels = {"fleet.domain": domain, "fleet.task": task}
+    if saved_model:
+        labels["fleet.model"] = saved_model
+    if saved_effort:
+        labels["fleet.effort"] = saved_effort
     terminal = fleet.launch(
         name=name, cwd=record["cwd"], tab_label=tab_label, space=coordinator["space"],
-        labels={"fleet.domain": domain, "fleet.task": task},
+        labels=labels,
         program=config.with_delegate_env(program), parent=coordinator["address"],
     )
     if not terminal["running"]:
