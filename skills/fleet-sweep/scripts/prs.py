@@ -62,3 +62,13 @@ def branch_prs(repo, branch, prs):
         p for p in prs.get(branch, [])
         if p["state"] == "OPEN" or (p.get("headRefOid") and is_ancestor(repo, branch, p["headRefOid"]))
     ]
+
+
+def merged_heads(worktree, branch, prs):
+    """[HEAD] when worktree's HEAD equals the headRefOid of a merged PR for branch."""
+    if not branch or not prs:
+        return []
+    head = (run("git", "-C", worktree, "rev-parse", "HEAD") or "").strip()
+    if not head:
+        return []
+    return [head] if any(p["state"] == "MERGED" and p.get("headRefOid") == head for p in prs.get(branch, [])) else []

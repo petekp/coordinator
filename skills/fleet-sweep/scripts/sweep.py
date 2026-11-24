@@ -35,7 +35,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 from ended import ended_record_rows, prune_ended
 from parking import park_ignored, split_build_output, unpark
-from prs import branch_prs, is_ancestor, pr_summary, pull_requests, run
+from prs import branch_prs, is_ancestor, merged_heads, pr_summary, pull_requests, run
 
 APP_WORKTREE_ROOTS = (
     os.path.expanduser("~/.codex/worktrees/"),
@@ -143,8 +143,8 @@ def processes_inside(procs, folder):
     })
 
 
-def unsaved_commits(worktree, bases):
-    out = git(worktree, "log", "--oneline", "HEAD", "--not", "--remotes", *bases)
+def unsaved_commits(worktree, bases, landed=()):
+    out = git(worktree, "log", "--oneline", "HEAD", "--not", "--remotes", *bases, *landed)
     return None if out is None else len(out.splitlines())
 
 
@@ -194,7 +194,7 @@ def worktree_rows(repo, bases, prs, sessions, procs, sizes, keep):
 def worktree_row(repo, path, branch, bases, prs, sessions, procs, sizes, keep):
     pr_state, pr_label = pr_summary(branch_prs(repo, branch, prs))
     dirty = dirty_files(path)
-    unsaved = unsaved_commits(path, bases)
+    unsaved = unsaved_commits(path, bases, merged_heads(path, branch, prs))
     git_failed = dirty is None or unsaved is None
     real = os.path.realpath(path)
     here = [s for s in sessions if inside(s["cwd"], real)]
@@ -372,9 +372,10 @@ def remove(args):
         return refuse(f"{path} is the main checkout")
     branch = (git(path, "symbolic-ref", "--short", "-q", "HEAD") or "").strip()
     bases = default_bases(repo, args.base)
+    prs = (pull_requests(repo) or {}) if (branch and not args.park) else {}
 
     dirty = dirty_files(path)
-    unsaved = unsaved_commits(path, bases)
+    unsaved = unsaved_commits(path, bases, merged_heads(path, branch, prs))
     sessions = live_sessions()
     procs = processes_by_cwd()
     if dirty is None or unsaved is None:
@@ -432,7 +433,7 @@ def remove(args):
         print(f"kept branch {branch} for the parked task")
     elif branch and branch not in PROTECTED_BRANCHES:
         sha = (git(repo, "rev-parse", "--short", branch) or "").strip()
-        pr_state, _ = pr_summary(branch_prs(repo, branch, pull_requests(repo) or {}))
+        pr_state, _ = pr_summary(branch_prs(repo, branch, prs))
         flag = "-D" if pr_state == "MERGED" else "-d"
         if subprocess.run(["git", "-C", repo, "branch", flag, branch]).returncode == 0:
             print(f"deleted branch {branch} {sha}")
