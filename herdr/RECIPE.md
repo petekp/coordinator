@@ -84,7 +84,7 @@ The status sits at the right end of each row.
 Sub-agents sit under their parent, one 26px row each, indented 39px.
 
 - Tree lines run down the left, 1.5px wide in `input`, with rounded corners.
-- Each row shows the program's 14px icon in one color, the name in 13.5px text, the inbox counts, and the status.
+- Each row shows the program's 14px icon (in one color when tinted, otherwise as its picture), the name in 13.5px text, the inbox counts, and the status.
 - A blocked sub-agent shows a steady 7px dot in `blocked`, never the "Needs you" pill or the "!". Its questions go to its coordinator, and only the coordinator asks the person. The parent still takes the blocked sub-agent's place in Priority order.
 - The sub-agent on screen is drawn in `foreground` on the `raised` background. The others are `muted`.
 
