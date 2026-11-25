@@ -148,6 +148,7 @@ defaults. `COORDINATOR_CONFIG` can name another file.
 | `user_names` | regular expressions for your name, so the backlog check also finds your words quoted after it, as in `Sam said "..."` | none |
 | `open_ask_patterns` | regular expressions, matched ignoring case, for other ways your backlogs mark an open ask | none |
 | `check_for_updates` | whether the fleet watcher checks, at its first wake-up each day, that the clone is up to date with its upstream | `true` |
+| `fast_forward_main_checkouts` | whether the fleet sweep's report fetches each main checkout's remote and fast-forwards the checkout when it is on the default branch, has no tracked changes and has no local commits. It never stashes, resets or switches branches | `false` |
 
 Put `notes_dir` inside a Git repo if you want the coordinator to commit
 each change to the notes.

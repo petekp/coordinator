@@ -8,7 +8,10 @@
 
 report prints one verdict per item: SAFE (remove it now), CLOSE (the task
 looks finished but a session still runs there), ASK (finished-looking work
-that would be lost), KEEP (in use). It changes nothing. It also counts the
+that would be lost), KEEP (in use). It changes nothing, except that the
+config key fast_forward_main_checkouts makes it fast-forward each main
+checkout to its remote's default branch and print a MAIN row for each one
+it moved or left alone. It also counts the
 records of ended delegates whose PR merged or closed or whose worktree is
 gone.
 
@@ -33,9 +36,13 @@ import sys
 import time
 from concurrent.futures import ThreadPoolExecutor
 
-from ended import ended_record_rows, prune_ended
-from parking import park_ignored, split_build_output, unpark
-from prs import branch_prs, is_ancestor, merged_heads, pr_summary, pull_requests, run
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "..", "coordinator", "scripts"))
+from config import CONFIG  # noqa: E402
+from ended import ended_record_rows, prune_ended  # noqa: E402
+from diskuse import scratch_rows, simulator_rows, size_mb  # noqa: E402
+from mainsync import fast_forward_row  # noqa: E402
+from parking import park_ignored, split_build_output, unpark  # noqa: E402
+from prs import branch_prs, is_ancestor, merged_heads, pr_summary, pull_requests, run  # noqa: E402
 
 APP_WORKTREE_ROOTS = (
     os.path.expanduser("~/.codex/worktrees/"),
@@ -43,9 +50,6 @@ APP_WORKTREE_ROOTS = (
 )
 PROTECTED_BRANCHES = {"main", "master", "next", "develop"}
 SELF_EXITING = {"caffeinate"}
-SCRATCH_STALE_DAYS = 7
-SCRATCH_LISTED_MB = 100
-SIMULATOR_LISTED_MB = 500
 
 
 def git(repo, *args):
@@ -151,11 +155,6 @@ def unsaved_commits(worktree, bases, landed=()):
 def dirty_files(worktree):
     out = git(worktree, "status", "--porcelain")
     return None if out is None else out.splitlines()
-
-
-def size_mb(path):
-    out = run("du", "-sk", path)
-    return int(out.split()[0]) // 1024 if out else 0
 
 
 def never_committed(repo, branch):
@@ -266,43 +265,6 @@ def orphan_process_rows(procs, worktree_roots):
             yield "SAFE", f"process {pid} {cmd} · runs in deleted folder {path}"
 
 
-def scratch_rows(repo):
-    """Leaves out parked/, which holds what removed worktrees left behind."""
-    scratch = os.path.join(repo, ".scratch")
-    if not os.path.isdir(scratch):
-        return
-    now = time.time()
-    small_count = small_mb = 0
-    for name in sorted(os.listdir(scratch)):
-        path = os.path.join(scratch, name)
-        if name == "parked":
-            continue
-        age_days = int((now - os.lstat(path).st_mtime) / 86400)
-        if age_days < SCRATCH_STALE_DAYS:
-            continue
-        mb = size_mb(path)
-        if mb >= SCRATCH_LISTED_MB:
-            yield "ASK", f"{mb:>6}M scratch {path} · untouched {age_days} days"
-        else:
-            small_count += 1
-            small_mb += mb
-    if small_count:
-        yield "ASK", f"{small_mb:>6}M scratch {scratch}: {small_count} smaller entries untouched {SCRATCH_STALE_DAYS}+ days"
-
-
-def simulator_rows():
-    out = run("xcrun", "simctl", "list", "devices", "-j")
-    if not out:
-        return
-    base = os.path.expanduser("~/Library/Developer/CoreSimulator/Devices")
-    devices = [d for group in json.loads(out).get("devices", {}).values() for d in group]
-    with ThreadPoolExecutor(max_workers=8) as pool:
-        sizes = pool.map(lambda d: size_mb(os.path.join(base, d["udid"])), devices)
-    for d, mb in zip(devices, sizes):
-        if mb >= SIMULATOR_LISTED_MB:
-            yield "ASK", f"{mb:>6}M simulator {d['name']} {d['udid']} {d['state']}"
-
-
 def report(args):
     sessions = live_sessions()
     procs = processes_by_cwd()
@@ -315,6 +277,10 @@ def report(args):
         bases = default_bases(repo, args.base)
         prs = pull_requests(repo) or {}
         keep = [os.path.realpath(os.path.expanduser(k)) for k in args.keep]
+        if CONFIG["fast_forward_main_checkouts"]:
+            moved = fast_forward_row(repo, bases)
+            if moved:
+                rows.append(moved)
         rows += worktree_rows(repo, bases, prs, sessions, procs, not args.no_sizes, keep)
         rows += scratch_rows(repo)
         roots.add(os.path.realpath(os.path.join(os.path.dirname(repo), "worktrees")))
@@ -323,7 +289,7 @@ def report(args):
     rows += ended_record_rows()
     if args.simulators:
         rows += simulator_rows()
-    order = {"SAFE": 0, "CLOSE": 1, "ASK": 2, "KEEP": 3}
+    order = {"MAIN": 0, "SAFE": 1, "CLOSE": 2, "ASK": 3, "KEEP": 4}
     for verdict, text in sorted(rows, key=lambda r: order[r[0]]):
         print(f"{verdict:5} {text}")
     if not rows:

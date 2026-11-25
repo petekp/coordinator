@@ -162,5 +162,92 @@ class TestPrsAndEnded(unittest.TestCase):
         self.assertFalse(wt_ahead.exists())
 
 
+def git_in(repo, *args):
+    return subprocess.run(["git", "-C", str(repo), *args], check=True, capture_output=True, text=True).stdout.strip()
+
+
+class TestFastForwardMainCheckout(unittest.TestCase):
+    def make_clone(self, sb):
+        origin = sb.root / "origin.git"
+        subprocess.run(["git", "init", "-q", "--bare", "-b", "main", str(origin)], check=True)
+        clone = sb.root / "clone"
+        subprocess.run(["git", "clone", "-q", str(origin), str(clone)], check=True, capture_output=True)
+        git_in(clone, "config", "user.email", "t@e.com")
+        git_in(clone, "config", "user.name", "T")
+        (clone / "a.txt").write_text("one\n")
+        git_in(clone, "add", "a.txt")
+        git_in(clone, "commit", "-q", "-m", "first")
+        git_in(clone, "push", "-q", "origin", "main")
+        git_in(clone, "remote", "set-head", "origin", "main")
+        other = sb.root / "other"
+        subprocess.run(["git", "clone", "-q", str(origin), str(other)], check=True, capture_output=True)
+        git_in(other, "config", "user.email", "t@e.com")
+        git_in(other, "config", "user.name", "T")
+        return clone, other
+
+    def push_from_other(self, other):
+        (other / "b.txt").write_text("two\n")
+        git_in(other, "add", "b.txt")
+        git_in(other, "commit", "-q", "-m", "second")
+        git_in(other, "push", "-q", "origin", "main")
+
+    def report(self, sb, clone):
+        sb.write_stub("gh", "echo '[]'\n")
+        sb.write_stub("hc", 'echo \'{"terminals":[]}\'\n')
+        sb.write_stub("lsof", "exit 0\n")
+        res = sb.run_script(SWEEP_SCRIPTS / "sweep.py", "report", str(clone), "--no-sizes")
+        self.assertEqual(res.returncode, 0, res.stdout + res.stderr)
+        return res.stdout
+
+    def run_case(self, change, expect_moved, expect_text, enabled=True):
+        sb = Sandbox({"fast_forward_main_checkouts": enabled})
+        self.addCleanup(sb.cleanup)
+        clone, other = self.make_clone(sb)
+        self.push_from_other(other)
+        change(clone, other)
+        before = git_in(clone, "rev-parse", "HEAD")
+        out = self.report(sb, clone)
+        after = git_in(clone, "rev-parse", "HEAD")
+        self.assertEqual(before != after, expect_moved, out)
+        if expect_text:
+            self.assertTrue(any(l.startswith("MAIN ") and expect_text in l for l in out.splitlines()), out)
+        else:
+            self.assertNotIn("MAIN ", out)
+        return clone, before, after, out
+
+    def test_behind_and_clean_moves_and_prints_hashes(self):
+        def untracked(clone, other):
+            (clone / "notes.txt").write_text("untracked\n")
+        clone, before, after, out = self.run_case(untracked, True, "fast-forwarded main")
+        self.assertIn(f"{before[:7]} -> {after[:7]}", out)
+        self.assertTrue((clone / "b.txt").exists())
+
+    def test_tracked_changes_refuse(self):
+        def edit_tracked(clone, other):
+            (clone / "a.txt").write_text("edited\n")
+        clone, *_ = self.run_case(edit_tracked, False, "tracked files changed")
+        self.assertEqual((clone / "a.txt").read_text(), "edited\n")
+
+    def test_other_branch_refuses(self):
+        def switch(clone, other):
+            git_in(clone, "checkout", "-q", "-b", "side")
+        self.run_case(switch, False, "on side, not main")
+
+    def test_diverged_refuses(self):
+        def commit_locally(clone, other):
+            (clone / "c.txt").write_text("local\n")
+            git_in(clone, "add", "c.txt")
+            git_in(clone, "commit", "-q", "-m", "local")
+        self.run_case(commit_locally, False, "1 local commits")
+
+    def test_setting_off_does_nothing(self):
+        self.run_case(lambda clone, other: None, False, None, enabled=False)
+
+    def test_failed_fetch_is_reported(self):
+        def break_remote(clone, other):
+            git_in(clone, "remote", "set-url", "origin", str(clone.parent / "missing.git"))
+        self.run_case(break_remote, False, "git fetch origin failed")
+
+
 if __name__ == "__main__":
     unittest.main()
