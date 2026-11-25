@@ -30,6 +30,7 @@ DEFAULTS = {
     "user_names": [],
     "open_ask_patterns": [],
     "check_for_updates": True,
+    "fast_forward_main_checkouts": False,
 }
 TYPES_OF_UNSET_DEFAULTS = {"notes_limit_kb": int, "done_limit_kb": int}
 OLDER_NAMES = {"backlog_dir": "notes_dir", "backlog_limit_kb": "notes_limit_kb"}

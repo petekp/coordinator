@@ -27,7 +27,7 @@ its task finishes, so no finished delegate waits for a later sweep.
 Pass the domain's main checkouts, any base branches beyond the remote's
 default, and the checkouts that must stay, such as a long-lived release
 worktree. The backlog's Boundary section holds this line; add it when
-missing. The report takes about half a minute and changes nothing. Each row
+missing. The report takes about half a minute and changes nothing but the fast-forward below. Each row
 starts with a verdict:
 
 | Verdict | Meaning | Do |
@@ -36,6 +36,13 @@ starts with a verdict:
 | CLOSE | Finished, but a session still runs there | Close it when it is your delegate, then remove |
 | ASK | Removing it would lose work, or a process the report can't place still runs there | One batched ask to the user |
 | KEEP | In use: open PR, live work, base branch or keep list | Nothing |
+| MAIN | A main checkout the report fast-forwarded, or could not and says why | Tell the user about a checkout it could not move |
+
+With `fast_forward_main_checkouts` set in the coordinator's config, the report
+first fetches each main checkout's remote and runs `git merge --ff-only` when the
+checkout is on the default branch, has no tracked changes and has no local
+commits. It prints the old and new hash, or a MAIN row saying why it left the
+checkout alone. Untracked files do not block it.
 
 Remove every SAFE row, whoever made it: SAFE means nothing would be lost.
 CLOSE and ASK rows are yours to act on only when the backlog's handles name
