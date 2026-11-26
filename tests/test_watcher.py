@@ -131,8 +131,14 @@ class TestWatcherEvents(unittest.TestCase):
     def test_urgent_reads_only_the_status_of_a_settled_line(self):
         self.assertTrue(fleet_watch.URGENT.search("settled d1 blocked · 2 findings in its inbox"))
         self.assertTrue(fleet_watch.URGENT.search("settled d1 error"))
-        self.assertFalse(fleet_watch.URGENT.search("settled d1 done · 1 finding in its inbox"))
+        self.assertTrue(fleet_watch.URGENT.search("settled d1 done · 1 finding in its inbox"))
+        self.assertTrue(fleet_watch.URGENT.search("settled d1 idle"))
         self.assertFalse(fleet_watch.URGENT.search("issue 7 · Save fails with an error · https://x/7"))
+
+    def test_a_finished_turn_does_not_wait_out_the_gap_after_a_wake(self):
+        last_wake_at, now = 1000.0, 1001.0
+        urgent_at = now if fleet_watch.URGENT.search("settled d1 done") else None
+        self.assertEqual(fleet_watch.wake_time(now, urgent_at, last_wake_at), now + fleet_watch.GATHER_SECONDS)
 
     def test_pr_events_detects_merge_checks_and_comments(self):
         old = {"org/repo#10": {"state": "OPEN", "checks": "pending", "review": "", "comments": 1}}

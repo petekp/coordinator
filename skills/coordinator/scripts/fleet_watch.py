@@ -32,6 +32,8 @@ Urgent events:
   gone <agent>                   no live terminal runs it any more
   unknown <agent>                its terminal has reported no status for 5 minutes
                                  with the Mac awake
+  settled <agent> idle|done      finished a turn. A compaction while idle is
+                                 not a turn and prints nothing.
   settled <agent> blocked        stopped on a dialog or a question
   settled <agent> error          stopped on an error: read its terminal
                                  A settled line ends with · <n> findings in
@@ -44,8 +46,6 @@ Urgent events:
 
 Other events:
 
-  settled <agent> idle|done      finished a turn. A compaction while idle is
-                                 not a turn and prints nothing.
   report <agent> <path> · <n> questions, <n> issues, <n> findings
                                  its REPORT.md changed and its turn ended.
                                  The counts are the list entries under the
@@ -148,7 +148,7 @@ COMMAND_TIMEOUT_SECONDS = 60
 OWNER_MISSES_BEFORE_GONE = 2
 NAME_MISSES_BEFORE_UNKNOWN = 2
 URGENT = re.compile(r"^(ask|gone|unknown|owner|pr \S+ (merged|closed|checks failure|review changes_requested|not found))"
-                    r"|^settled \S+ (blocked|error)\b")
+                    r"|^settled \S+ (blocked|error|idle|done)\b")
 STATE_SOURCE = "hc"
 RULE_SECONDS = 20
 
