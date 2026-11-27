@@ -43,10 +43,12 @@ the tab and do not send again.
    "<domain> [<task>]". The terminal is your child, so the app lists the
    delegate under you, and it keeps running when your session ends. When Git
    does not ignore `.scratch/` in the worktree, it adds it to the repo's
-   `info/exclude`. Pick the model from the brief: default routine
-   implementation, bug fixes, tests, refactors, and PR review replies to
-   `sonnet`; use `opus` for architecture, complex debugging, ambiguous
-   design, and primary coordinators. Pass `fable` or `--effort` only when
+   `info/exclude`. Pick the model for each task from its
+   brief, with no default: the cheapest model that will do this task well.
+   A brief that settles what to build and how to check it needs less than
+   one that leaves design, ambiguous requirements or a hard diagnosis to the
+   delegate. Say in one line why you chose the model, in the reply that
+   names the tab. Pass `fable` or `--effort` only when
    the user names them: without `--effort` the delegate runs at the effort
    in their Claude Code settings. Every delegate also gets the config's
    `delegate_claude_args`, such as `["--autocompact", "300000"]` to compact
