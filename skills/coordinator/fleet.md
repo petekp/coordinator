@@ -99,10 +99,11 @@ the tab and do not send again.
   It polls herdr-core every 5 seconds and GitHub every 90, and exits once
   something needs you, printing one line per event. Its `--help` lists the
   lines. Urgent events wake you within 15 seconds of being seen: a new ask,
-  a blocked, errored or gone delegate, an `unknown` one whose terminal has
-  reported no status for 5 minutes, a merged or closed PR, failed
-  checks, requested changes, and a `--pr` that GitHub cannot find. Other
-  events wait until 10 minutes after the last wake-up.
+  a delegate that finished a turn (`settled … idle|done`), a blocked,
+  errored or gone delegate, an `unknown` one whose terminal has reported no
+  status for 5 minutes, a merged or closed PR, failed checks, requested
+  changes, and a `--pr` that GitHub cannot find. Other events wait until 10
+  minutes after the last wake-up.
 
   With `--domain`, `due <date> · <text>` is one of the other events. It
   means a list item in your backlog's Open or Later section carries
