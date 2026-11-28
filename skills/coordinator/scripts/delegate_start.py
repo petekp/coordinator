@@ -40,6 +40,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import config  # noqa: E402
 import fleet  # noqa: E402
+import live_without_status  # noqa: E402
 from fleet import CheckError  # noqa: E402
 
 CLAUDE_CODE_EFFORTS = ("low", "medium", "high", "xhigh", "max")
@@ -113,7 +114,7 @@ def main() -> int:
             labels=labels,
             program=config.with_delegate_env(program), parent=coordinator["address"],
         )
-        if not terminal["running"]:
+        if not (terminal["running"] or live_without_status.process_alive(terminal["address"])):
             raise CheckError(f"no agent showed in terminal {terminal['address']} within {fleet.SECONDS_TO_WAIT_FOR_AGENT} "
                              f"seconds. It shows:\n{fleet.terminal_text(terminal['address'])}\n"
                              f"Remove a finished terminal with `hc rm {terminal['address']}` before trying again")
@@ -131,6 +132,8 @@ def main() -> int:
     print(f"started {args.name} as terminal {address}, tab \"{tab_label}\". Backlog handle:")
     print(f"  - {args.name} | {address} | \"{tab_label}\" | {cwd} | {branch or commit or 'no repo'} | {session} | "
           + (resume_tail if args.resume else f"{model_and_effort}; started {started}; brief {brief}"))
+    if not terminal["running"]:
+        print(live_without_status.note(address))
     if args.resume:
         print(f"Nothing was sent. Send it the work with:\n"
               f"  {fleet.SCRIPTS}/delegate_cap.py --to {args.name} --send \"<what arrived>\"")
