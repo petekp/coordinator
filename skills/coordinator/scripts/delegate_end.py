@@ -45,6 +45,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import config  # noqa: E402
 import fleet  # noqa: E402
+import live_without_status  # noqa: E402
 import inbox_state  # noqa: E402
 from background_tasks import is_working  # noqa: E402
 from fleet import CheckError, age, run  # noqa: E402
@@ -193,11 +194,13 @@ def resume(herd: fleet.Fleet, domain: str, name: str) -> int:
         labels=labels,
         program=config.with_delegate_env(program), parent=coordinator["address"],
     )
-    if not terminal["running"]:
+    if not (terminal["running"] or live_without_status.process_alive(terminal["address"])):
         raise CheckError(f"no agent showed in terminal {terminal['address']} within {fleet.SECONDS_TO_WAIT_FOR_AGENT} "
                          f"seconds, so the ended record stays. It shows:\n{fleet.terminal_text(terminal['address'])}\n"
                          f"Remove a finished terminal with `hc rm {terminal['address']}` before trying again")
     path.unlink()
+    if not terminal["running"]:
+        print(live_without_status.note(terminal["address"]))
     print(f"resumed {name} as terminal {terminal['address']}, tab \"{tab_label}\". Send it the work with:\n"
           f"  {fleet.SCRIPTS}/delegate_cap.py --to {name} --send \"<what arrived>\"")
     return 0

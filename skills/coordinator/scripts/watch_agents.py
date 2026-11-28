@@ -125,7 +125,7 @@ def agent_snapshot(names, agents, seen, clock, ended=(), saved_inbox=None):
             responded, compacted = was.get("responded"), was.get("compacted")
         cwd = a["cwd"]
         path, mtime = report_mtime(cwd, name, watched_cwds.count(cwd) > 1)
-        if status not in SETTLED and not still_running:
+        if status is not None and status not in SETTLED and not still_running:
             mtime = was.get("report_mtime", mtime)
         report_written_with_tasks_running = bool(still_running) and mtime != was.get("report_mtime")
         if turn_ended or "findings" not in was or report_written_with_tasks_running:
