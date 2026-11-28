@@ -51,6 +51,10 @@ const kidStatus = (k, listed) => {
   const s = listed.get(k.address) ?? waitingAsIdle(k.status, k);
   return s === "error" ? "blocked" : s === "done" ? "idle" : s;
 };
+// Something waits on the user: a question or stop reason from the inbox plugin, a blocked or
+// errored agent, or a finished turn. Findings and PRs don't count.
+const needsUser = (status, labels) =>
+  Boolean(labels?.["inbox.needs-you"] || labels?.["inbox.stop"]) || status === "blocked" || status === "error" || status === "done";
 const SORTS = [
   { id: "priority", label: "Priority", icon: "clock" },
   { id: "grouped", label: "Grouped by space", icon: "layers" },
@@ -253,7 +257,7 @@ export default class Agents extends View {
     const row = (r, i) => {
       const { a, name } = r;
       const selected = i === this.at;
-      const idle = a.status === "idle" && !a.focused;
+      const nameColor = a.focused || needsUser(a.status, this.labelsOf.get(a.address)) ? t.foreground : t.muted;
       const machine = a.address.includes("/") ? a.address.split("/")[0] : null;
       const color = palette(t)[indexOf(this.labelsOf.get(a.address)?.[LABEL])];
       return h_flex()
@@ -271,7 +275,7 @@ export default class Agents extends View {
         .on_click(() => this.jump(r))
         .when(scrolls, (el) => el.absolute().left(0).right(0).top(i * JUMP_ROW_HEIGHT - this.scroll))
         .child(spaceTile(t, { id: a.space, name: a.space_name, color }))
-        .child(this.nameCell(t, a.address, name, idle ? t.muted : t.foreground))
+        .child(this.nameCell(t, a.address, name, nameColor))
         .when(Boolean(machine), (el) => el.child(div().text_size(10).text_color(t.dim).child(machine)))
         .child(this.status(t, a));
     };
@@ -458,7 +462,8 @@ export default class Agents extends View {
     const k = s.t;
     const st = kidStatus(k, this.listed);
     const on = k.address === shown;
-    const pic = icon(k.program, 14, on ? t.foreground : t.muted, true);
+    const bright = on || needsUser(this.listed.get(k.address) ?? k.status, this.labelsOf.get(k.address));
+    const pic = icon(k.program, 14, bright ? t.foreground : t.muted, true);
     // A sub-agent's questions go to its coordinator, so a blocked sub-agent gets a plain dot, never "Needs you".
     const blockedDot = div().size(7).mx(3).flex_none().rounded(4).bg(t.blocked);
     return h_flex()
@@ -476,7 +481,7 @@ export default class Agents extends View {
       .on_click(() => (this.listed.has(k.address) ? run("pane.focus", { terminal: k.address }) : this.peek(k.address)))
       .children(treeLines(t, s.lines))
       .when(Boolean(pic), el => el.child(div().mr(8).child(pic)))
-      .child(this.nameCell(t, k.address, k.name || k.template || k.program?.name || k.address, on ? t.foreground : t.muted))
+      .child(this.nameCell(t, k.address, k.name || k.template || k.program?.name || k.address, bright ? t.foreground : t.muted))
       .child(st === "blocked" ? blockedDot : this.status(t, { status: st }, compact));
   }
 
@@ -580,7 +585,7 @@ export default class Agents extends View {
           .child(div().flex_1().min_w(0).whitespace_nowrap().text_right().text_color(t.muted).child(String(i + 1)))
           .child(h_flex().w(14).flex_none().items_center().justify_center().child(this.status(t, { ...a, status: this.shownStatus(all, a) }, true)));
       }
-      const idle = a.status === "idle" && a.address !== viewed;
+      const nameColor = a.address === viewed || needsUser(a.status, this.labelsOf.get(a.address)) ? t.foreground : t.muted;
       const isPinned = a.pinned;
       // Under a space header the space goes without saying; without one (priority,
       // pinned) the space's letter tile stands in for the program icon.
@@ -648,7 +653,7 @@ export default class Agents extends View {
             .on_click((e, cx) => toggleFold(a, e, cx)))
           .child(lead))
         .child(v_flex().flex_1().min_w(0).justify_center()
-          .child(h_flex().min_w(0).child(this.nameCell(t, a.address, names.get(a.address), idle ? t.muted : t.foreground)))
+          .child(h_flex().min_w(0).child(this.nameCell(t, a.address, names.get(a.address), nameColor)))
           .when(Boolean(machine), el => el.child(div().mt(-3).text_size(9.5).text_color(t.dim).truncate().child(machine))))
         .child(this.status(t, { ...a, status: this.shownStatus(all, a) }, byPriority && !isPinned));
     };
